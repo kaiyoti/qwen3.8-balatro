@@ -294,8 +294,8 @@ class PlayScene extends Phaser.Scene {
       const angle = offset * totalAngle;
 
       // Selected cards: start at normal pos, tween to "slid out" position
-      const slideX = isSelected ? x - 40 : x;
-      const slideY = isSelected ? y - 25 : y;
+      const slideX = isSelected ? x : x;
+      const slideY = isSelected ? y - 40 : y;
 
       const sprite = this.createCardSprite(card, x, y, angle, isSelected);
       sprite.setDepth(isSelected ? 15 : 10);
