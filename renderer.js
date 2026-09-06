@@ -16,10 +16,17 @@ function dur(baseMs) { return Math.round(baseMs / ANIM_SPEED); }
 function delay(baseMs) { return Math.round(baseMs / ANIM_SPEED); }
 
 // Card dimensions (pixel art style)
-const CARD_W = 80;
-const CARD_H = 112;
+const CARD_W = 120;
+const CARD_H = 168;
 const JOKER_SIZE = 64;
 const JOKER_GAP = 8;
+
+// Background color and derived shadow (darker version of BG)
+const BG_COLOR = 0x1a1a3e;
+const SHADOW_COLOR = ((BG_COLOR >> 16 & 0xff) * 0.4 << 16) |
+                     ((BG_COLOR >> 8  & 0xff) * 0.4 << 8)  |
+                      (BG_COLOR        & 0xff) * 0.4;
+const SHADOW_OFFSET = 8;
 
 // Suit colors
 const SUIT_COLORS = {
@@ -106,7 +113,7 @@ class PlayScene extends Phaser.Scene {
     // Background: dark blue gradient
     const w = this.scale.width;
     const h = this.scale.height;
-    const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x1a1a3e);
+    const bg = this.add.rectangle(w / 2, h / 2, w, h, BG_COLOR);
     bg.setDepth(-10);
 
     // Subtle grid pattern for texture
@@ -316,8 +323,8 @@ class PlayScene extends Phaser.Scene {
     // cutting *into* the highlight instead of sitting outside/behind it.
     const R = 5;
     const shadow = this.add.graphics();
-    shadow.fillStyle(0x0a0a15, 1);
-    shadow.fillRoundedRect(4 - CARD_W / 2, 4 - CARD_H / 2, CARD_W, CARD_H, R);
+    shadow.fillStyle(Math.round(SHADOW_COLOR), 1);
+    shadow.fillRoundedRect(SHADOW_OFFSET - CARD_W / 2, SHADOW_OFFSET - CARD_H / 2, CARD_W, CARD_H, R);
     shadow.setDepth(0);
 
     const highlightObjs = [];
@@ -343,19 +350,19 @@ class PlayScene extends Phaser.Scene {
     const sym = SUIT_SYM[card.suit];
 
     // Corner index (top-left): rank + suit stacked
-    const cornerTL_rank = this.add.text(-CARD_W / 2 + 5, -CARD_H / 2 + 3, card.rank, {
-      fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: colorStr, resolution: 2,
+    const cornerTL_rank = this.add.text(-CARD_W / 2 + 8, -CARD_H / 2 + 5, card.rank, {
+      fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(0, 0);
-    const cornerTL_suit = this.add.text(-CARD_W / 2 + 6, -CARD_H / 2 + 22, sym, {
-      fontFamily: 'monospace', fontSize: '14px', color: colorStr, resolution: 2,
+    const cornerTL_suit = this.add.text(-CARD_W / 2 + 9, -CARD_H / 2 + 35, sym, {
+      fontFamily: 'monospace', fontSize: '21px', color: colorStr, resolution: 2,
     }).setOrigin(0, 0);
 
     // Corner index (bottom-right): rank + suit stacked (flipped)
-    const cornerBR_rank = this.add.text(CARD_W / 2 - 5, CARD_H / 2 - 3, card.rank, {
-      fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: colorStr, resolution: 2,
+    const cornerBR_rank = this.add.text(CARD_W / 2 - 8, CARD_H / 2 - 5, card.rank, {
+      fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(1, 1);
-    const cornerBR_suit = this.add.text(CARD_W / 2 - 6, CARD_H / 2 - 22, sym, {
-      fontFamily: 'monospace', fontSize: '14px', color: colorStr, resolution: 2,
+    const cornerBR_suit = this.add.text(CARD_W / 2 - 9, CARD_H / 2 - 35, sym, {
+      fontFamily: 'monospace', fontSize: '21px', color: colorStr, resolution: 2,
     }).setOrigin(1, 1);
 
     // Pips: number cards 2-10 use layout, Ace/J/Q/K use single center
@@ -368,7 +375,7 @@ class PlayScene extends Phaser.Scene {
         const px = Math.round(-pipW / 2 + p.x * pipW);
         const py = Math.round(-pipH / 2 + p.y * pipH);
         const pip = this.add.text(px, py, sym, {
-          fontSize: '20px', color: colorStr, resolution: 2,
+          fontSize: '30px', color: colorStr, resolution: 2,
         }).setOrigin(0.5);
         if (p.flip) pip.setScale(1, -1);
         pips.push(pip);
@@ -376,7 +383,7 @@ class PlayScene extends Phaser.Scene {
     } else {
       // Single large center pip for A/J/Q/K
       const centerPip = this.add.text(0, 0, sym, {
-        fontSize: '40px', color: colorStr, resolution: 2,
+        fontSize: '60px', color: colorStr, resolution: 2,
       }).setOrigin(0.5);
       pips.push(centerPip);
     }
@@ -621,7 +628,7 @@ function initRenderer() {
     pixelArt: true,
     antialias: false,
     roundPixels: true,
-    backgroundColor: '#1a1a3e',
+    backgroundColor: '#' + BG_COLOR.toString(16).padStart(6, '0'),
     scene: PlayScene,
     scale: {
       mode: Phaser.Scale.RESIZE,
