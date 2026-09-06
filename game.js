@@ -666,11 +666,19 @@ function renderSplash() {
     $('splash-chips').textContent = r.chips;
     $('splash-mult').textContent = r.mult;
     $('hand-type-name').textContent = r.eval.name;
+    $('base-indicator').textContent = `Base: ${r.eval.base.chips} \u00d7 ${r.eval.base.mult}`;
   } else {
     $('splash-chips').textContent = '0';
     $('splash-mult').textContent = '0';
     $('hand-type-name').textContent = 'select 1\u20135 cards';
+    $('base-indicator').textContent = '';
   }
+}
+
+function setSplashDisplay(chips, mult) {
+  if (!IS_BROWSER) return;
+  $('splash-chips').textContent = chips;
+  $('splash-mult').textContent = mult;
 }
 
 function updateButtons() {
@@ -791,6 +799,7 @@ if (typeof document !== 'undefined') {
   window.JOKER_ICON = JOKER_ICON;
   window.JOKER_ICONS = JOKER_ICONS;
   window.CHIP_VALUE = CHIP_VALUE;
+  window.setSplashDisplay = setSplashDisplay;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 }
