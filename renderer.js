@@ -280,6 +280,11 @@ class PlayScene extends Phaser.Scene {
     const arcHeight = 30; // how much the arc curves
     const totalAngle = Math.min(n * 0.08, 0.5); // total fan angle in radians
 
+    // Track which cards were selected on the previous render so we only
+    // animate newly-selected cards (not re-animate already-selected ones)
+    const prevSelected = this._prevSelected || [];
+    this._prevSelected = state.selected ? [...state.selected] : [];
+
     hand.forEach((card, i) => {
       const isSelected = state.selected.includes(i);
       const t = n > 1 ? i / (n - 1) : 0.5; // 0 to 1
@@ -293,9 +298,8 @@ class PlayScene extends Phaser.Scene {
       // Rotation: outer cards rotate more
       const angle = offset * totalAngle;
 
-      // Selected cards: start at normal pos, tween to "slid out" position
-      const slideX = isSelected ? x : x;
       const slideY = isSelected ? y - 40 : y;
+      const isNewlySelected = isSelected && !prevSelected.includes(i);
 
       const sprite = this.createCardSprite(card, x, y, angle, isSelected);
       sprite.setDepth(isSelected ? 15 : 10);
@@ -308,15 +312,19 @@ class PlayScene extends Phaser.Scene {
       });
       this.cardSprites.push(sprite);
 
-      // Animate selected cards sliding out
       if (isSelected) {
-        this.tweens.add({
-          targets: sprite,
-          x: slideX,
-          y: slideY,
-          duration: dur(150),
-          ease: 'Quad.easeOut',
-        });
+        if (isNewlySelected) {
+          // Animate slide-out for the newly selected card
+          this.tweens.add({
+            targets: sprite,
+            y: slideY,
+            duration: dur(150),
+            ease: 'Quad.easeOut',
+          });
+        } else {
+          // Already selected — snap to final position without animation
+          sprite.setY(slideY);
+        }
       }
     });
   }
