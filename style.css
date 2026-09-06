@@ -120,20 +120,15 @@ html, body {
 
 .chips-blob { background: linear-gradient(135deg, #4a90d9, #2a5fa0); }
 .mult-blob  { background: linear-gradient(135deg, #d9534f, #a03030); }
+.total-chips-blob { background: linear-gradient(135deg, #1e3a6e, #0f1f3a); }
+.total-mult-blob  { background: linear-gradient(135deg, #6e1e1e, #3a0f0f); }
 .splash-x   { font-size: 32px; color: #fff; }
+.splash-row-total { margin-top: 4px; }
 
 .hand-type-line {
   text-align: center;
   font-size: 20px;
   color: var(--text-dim);
-}
-
-.base-line {
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-dim);
-  opacity: 0.7;
-  margin-top: 2px;
 }
 
 /* Counters */

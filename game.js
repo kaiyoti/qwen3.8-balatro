@@ -663,15 +663,17 @@ function renderSplash() {
   const sel = selectedCards();
   if (sel.length > 0) {
     const r = computePlayScore(sel, state.jokers, state.discardsLeft);
+    $('base-chips').textContent = r.eval.base.chips;
+    $('base-mult').textContent = r.eval.base.mult;
     $('splash-chips').textContent = r.chips;
     $('splash-mult').textContent = r.mult;
     $('hand-type-name').textContent = r.eval.name;
-    $('base-indicator').textContent = `Base: ${r.eval.base.chips} \u00d7 ${r.eval.base.mult}`;
   } else {
+    $('base-chips').textContent = '0';
+    $('base-mult').textContent = '0';
     $('splash-chips').textContent = '0';
     $('splash-mult').textContent = '0';
     $('hand-type-name').textContent = 'select 1\u20135 cards';
-    $('base-indicator').textContent = '';
   }
 }
 
