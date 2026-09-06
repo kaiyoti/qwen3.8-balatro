@@ -152,6 +152,30 @@ html, body {
   color: var(--text-dim);
 }
 
+/* Consumables */
+.consumable-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  min-height: 40px;
+  flex-wrap: wrap;
+}
+.consumable-card {
+  width: 36px; height: 48px;
+  border-radius: 4px;
+  border: 2px solid #222;
+  background: #f5f0e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--shadow);
+  transition: transform 0.1s;
+}
+.consumable-card:hover { transform: scale(1.1); }
+.consumable-card .con-icon { font-size: 18px; }
+
 /* Counters */
 .counter-row {
   display: flex;

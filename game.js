@@ -125,11 +125,111 @@ function rollJokerModifiers() {
   return mod;
 }
 
+// --- Consumables (Phase 4 Pass 2) ---
+const MAX_CONSUMABLES = 4;
+
+// Planet cards: level up a hand type permanently for the run
+const PLANET_CARDS = [
+  { id: 'pluto',    name: 'Pluto',    handType: 'HIGH_CARD',      text: 'Level up High Card' },
+  { id: 'mercury',  name: 'Mercury',  handType: 'PAIR',           text: 'Level up Pair' },
+  { id: 'uranus',   name: 'Uranus',   handType: 'TWO_PAIR',       text: 'Level up Two Pair' },
+  { id: 'venus',    name: 'Venus',    handType: 'THREE_KIND',     text: 'Level up Three of a Kind' },
+  { id: 'saturn',   name: 'Saturn',   handType: 'STRAIGHT',       text: 'Level up Straight' },
+  { id: 'jupiter',  name: 'Jupiter',  handType: 'FLUSH',          text: 'Level up Flush' },
+  { id: 'earth',    name: 'Earth',    handType: 'FULL_HOUSE',     text: 'Level up Full House' },
+  { id: 'mars',     name: 'Mars',     handType: 'FOUR_KIND',      text: 'Level up Four of a Kind' },
+  { id: 'neptune',  name: 'Neptune',  handType: 'STRAIGHT_FLUSH', text: 'Level up Straight Flush' },
+];
+
+// Tarot cards: modify cards, gain money, or destroy
+const TAROT_CARDS = [
+  { id: 'hermit',   name: 'The Hermit',    text: 'Double your money (max $20)',
+    apply: (s) => { s.money = Math.min(20, s.money * 2); } },
+  { id: 'temperance', name: 'Temperance',  text: 'Gain $ = sell value of jokers (max $50)',
+    apply: (s) => { const v = Math.min(50, s.jokers.reduce((sum, j) => sum + sellPrice(j), 0)); s.money += v; } },
+  { id: 'hanged',   name: 'The Hanged Man', text: 'Destroy up to 2 selected cards',
+    apply: (s) => { s.hand = s.hand.filter((_, i) => !s.selected.includes(i)); s.selected = []; drawUp(); } },
+  { id: 'lovers',   name: 'The Lovers',    text: '1 card becomes Wild',
+    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'wild'; } } },
+  { id: 'chariot',  name: 'The Chariot',   text: '1 card becomes Steel',
+    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'steel'; } } },
+  { id: 'justice',  name: 'Justice',       text: '1 card becomes Glass',
+    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'glass'; } } },
+  { id: 'devil',    name: 'The Devil',     text: '1 card becomes Gold',
+    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'gold'; } } },
+  { id: 'tower',    name: 'The Tower',     text: '1 card becomes Stone',
+    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'stone'; c.rank = null; c.suit = null; } } },
+  { id: 'strength', name: 'Strength',      text: 'Up to 2 cards: rank +1',
+    apply: (s) => {
+      const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K'];
+      for (let i = 0; i < Math.min(2, s.hand.length); i++) {
+        const c = s.hand[i];
+        if (c.rank && c.rank !== 'A') {
+          const idx = RANK_ORDER.indexOf(c.rank);
+          if (idx >= 0 && idx < RANK_ORDER.length - 1) c.rank = RANK_ORDER[idx + 1];
+        }
+      }
+    } },
+  { id: 'sun',      name: 'The Sun',       text: 'Up to 3 cards become Hearts',
+    apply: (s) => { for (let i = 0; i < Math.min(3, s.hand.length); i++) { if (s.hand[i].suit !== null) s.hand[i].suit = 'heart'; } } },
+];
+
+// Use a consumable by index (removes it from the slot)
+function useConsumable(idx, hand) {
+  if (idx < 0 || idx >= state.consumables.length) return false;
+  const con = state.consumables[idx];
+  if (con.type === 'planet') {
+    const pc = PLANET_CARDS.find(p => p.id === con.id);
+    if (pc) {
+      state.handLevels[pc.handType] = (state.handLevels[pc.handType] || 0) + 1;
+    }
+  } else if (con.type === 'tarot') {
+    const tc = TAROT_CARDS.find(t => t.id === con.id);
+    if (tc && tc.apply) tc.apply(hand || state);
+  }
+  state.consumables.splice(idx, 1);
+  if (IS_BROWSER) render();
+  return true;
+}
+
+// Add a consumable to the slot (returns false if full)
+function addConsumable(con) {
+  if (state.consumables.length >= MAX_CONSUMABLES) return false;
+  state.consumables.push(con);
+  return true;
+}
+
 // Standard poker hand ranking (for "or better" joker conditions)
 const HAND_RANK_ORDER = {
   HIGH_CARD: 0, PAIR: 1, TWO_PAIR: 2, THREE_KIND: 3, STRAIGHT: 4,
   FLUSH: 5, FULL_HOUSE: 6, FOUR_KIND: 7, STRAIGHT_FLUSH: 8,
 };
+
+// --- Hand Leveling (Phase 4 Pass 2: Planet cards) ---
+// Per-level increments for each hand type (from balatrowiki.org)
+const PLANET_LEVELS = {
+  HIGH_CARD:      { name: 'Pluto',   chips: 10, mult: 1 },
+  PAIR:           { name: 'Mercury', chips: 15, mult: 1 },
+  TWO_PAIR:       { name: 'Uranus',  chips: 20, mult: 1 },
+  THREE_KIND:     { name: 'Venus',   chips: 20, mult: 2 },
+  STRAIGHT:       { name: 'Saturn',  chips: 30, mult: 3 },
+  FLUSH:          { name: 'Jupiter', chips: 15, mult: 2 },
+  FULL_HOUSE:     { name: 'Earth',   chips: 25, mult: 2 },
+  FOUR_KIND:      { name: 'Mars',    chips: 30, mult: 3 },
+  STRAIGHT_FLUSH: { name: 'Neptune', chips: 40, mult: 4 },
+};
+
+// Get the effective base for a hand type given its current level
+function getHandBase(type, handLevels) {
+  const base = HANDS[type];
+  const lvl = (handLevels && handLevels[type]) || 0;
+  if (lvl === 0) return { chips: base.chips, mult: base.mult };
+  const inc = PLANET_LEVELS[type];
+  return {
+    chips: base.chips + lvl * inc.chips,
+    mult: base.mult + lvl * inc.mult,
+  };
+}
 
 // Expanded joker pool (28 jokers).
 // { id, name, short, cost, rarity: 'common'|'uncommon'|'rare', kind: 'chips'|'mult'|'xmult'|'none',
@@ -293,6 +393,8 @@ function createRunState() {
     hand: [],    // up to 8 cards
     selected: [],// indices into hand
     jokers: [],
+    consumables: [], // tarot/planet/spectral cards (max 4)
+    handLevels: {},  // { PAIR: 0, TWO_PAIR: 0, ... } per-run leveling
     screen: 'play', // 'play' | 'shop' | 'gameover' | 'victory'
     shop: null,     // { offers: [joker|null x5], rerollCost }
     lastPayout: null,
@@ -434,8 +536,10 @@ function evaluateHand(cards) {
    4. Red Seal: scoring card's total contribution ×2 (applied as bonus chips)
    (Joker shape is documented at the JOKERS pool in section 1.)
 */
-function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null) {
+function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, handLevels = null) {
   const ev = evaluateHand(cards);
+  // Use leveled base if handLevels provided
+  const base = handLevels ? getHandBase(ev.type, handLevels) : ev.base;
   const ctx = {
     cards,
     handType: ev.type,
@@ -446,7 +550,7 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null) {
   };
 
   // --- Chips pass ---
-  let chips = ev.base.chips;
+  let chips = base.chips;
   for (const c of ev.scoring) {
     // Base chip value (Stone = 0, no rank)
     if (c.rank !== null) chips += CHIP_VALUE[c.rank] || 0;
@@ -473,7 +577,7 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null) {
   }
 
   // --- Mult pass ---
-  let mult = ev.base.mult;
+  let mult = base.mult;
   for (const c of ev.scoring) {
     if (c.enhancement === 'mult') mult += 4;
     if (c.enhancement === 'lucky' && Math.random() < 0.2) mult += 20;
@@ -666,7 +770,7 @@ function removeSelectedCards() {
 
 function onPlayClick() {
   if (state.selected.length === 0 || state.playsLeft <= 0) return;
-  const s = computePlayScore(selectedCards(), state.jokers, state.discardsLeft, state.hand);
+  const s = computePlayScore(selectedCards(), state.jokers, state.discardsLeft, state.hand, state.handLevels);
   state.playsLeft -= 1;
   removeSelectedCards();
   drawUp();
@@ -832,7 +936,7 @@ function renderSplash() {
   if (!IS_BROWSER) return;
   const sel = selectedCards();
   if (sel.length > 0) {
-    const r = computePlayScore(sel, state.jokers, state.discardsLeft);
+    const r = computePlayScore(sel, state.jokers, state.discardsLeft, state.hand, state.handLevels);
     $('splash-chips').textContent = r.chips;
     $('splash-mult').textContent = r.mult;
     $('hand-type-name').textContent = r.eval.name;
@@ -942,10 +1046,27 @@ function render() {
   showScreen(state.screen);
   renderHUD();
   renderSplash();
+  renderConsumables();
   updateButtons();
   if (state.screen === 'shop') renderShop();
   if (state.screen === 'gameover') renderGameover();
   if (state.screen === 'victory') renderVictory();
+}
+
+function renderConsumables() {
+  if (!IS_BROWSER) return;
+  const row = $('consumable-row');
+  if (!row) return;
+  row.innerHTML = '';
+  state.consumables.forEach((con, i) => {
+    const el = document.createElement('div');
+    el.className = 'consumable-card';
+    const icon = con.type === 'planet' ? '🪐' : '🃏';
+    el.innerHTML = `<span class="con-icon">${icon}</span>`;
+    el.title = con.name || con.id;
+    el.addEventListener('click', () => { useConsumable(i); });
+    row.appendChild(el);
+  });
 }
 
 /* ---------------- 10. INIT ---------------- */
@@ -978,6 +1099,7 @@ if (typeof document !== 'undefined') {
   window.CHIP_VALUE = CHIP_VALUE;
   window.setSplashDisplay = setSplashDisplay;
   window.flashSplash = flashSplash;
+  window.useConsumable = useConsumable;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 }
@@ -1007,5 +1129,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ENHANCEMENTS, SEALS, EDITIONS, STICKERS,
     CARD_MOD_RATES, JOKER_MOD_RATES,
     rollCardModifiers, rollJokerModifiers, applyRoundEndHooks,
+    PLANET_LEVELS, getHandBase, PLANET_CARDS, TAROT_CARDS,
+    MAX_CONSUMABLES, useConsumable, addConsumable,
   };
 }
