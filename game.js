@@ -663,14 +663,10 @@ function renderSplash() {
   const sel = selectedCards();
   if (sel.length > 0) {
     const r = computePlayScore(sel, state.jokers, state.discardsLeft);
-    $('base-chips').textContent = r.eval.base.chips;
-    $('base-mult').textContent = r.eval.base.mult;
-    $('splash-chips').textContent = r.eval.base.chips;
-    $('splash-mult').textContent = r.eval.base.mult;
+    $('splash-chips').textContent = r.chips;
+    $('splash-mult').textContent = r.mult;
     $('hand-type-name').textContent = r.eval.name;
   } else {
-    $('base-chips').textContent = '0';
-    $('base-mult').textContent = '0';
     $('splash-chips').textContent = '0';
     $('splash-mult').textContent = '0';
     $('hand-type-name').textContent = 'select 1\u20135 cards';
@@ -681,6 +677,15 @@ function setSplashDisplay(chips, mult) {
   if (!IS_BROWSER) return;
   $('splash-chips').textContent = chips;
   $('splash-mult').textContent = mult;
+}
+
+function flashSplash() {
+  if (!IS_BROWSER) return;
+  const row = document.querySelector('#panel-splash .splash-row');
+  if (!row) return;
+  row.classList.remove('flash');
+  void row.offsetWidth; // force reflow to restart animation
+  row.classList.add('flash');
 }
 
 function updateButtons() {
@@ -802,6 +807,7 @@ if (typeof document !== 'undefined') {
   window.JOKER_ICONS = JOKER_ICONS;
   window.CHIP_VALUE = CHIP_VALUE;
   window.setSplashDisplay = setSplashDisplay;
+  window.flashSplash = flashSplash;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 }

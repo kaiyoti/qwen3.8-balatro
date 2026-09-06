@@ -120,10 +120,14 @@ html, body {
 
 .chips-blob { background: linear-gradient(135deg, #4a90d9, #2a5fa0); }
 .mult-blob  { background: linear-gradient(135deg, #d9534f, #a03030); }
-.total-chips-blob { background: linear-gradient(135deg, #1e3a6e, #0f1f3a); }
-.total-mult-blob  { background: linear-gradient(135deg, #6e1e1e, #3a0f0f); }
 .splash-x   { font-size: 32px; color: #fff; }
-.splash-row-total { margin-top: 4px; }
+
+.splash-row.flash { animation: splash-flash 0.15s ease-out; }
+@keyframes splash-flash {
+  0%   { transform: scale(1); filter: brightness(1); }
+  50%  { transform: scale(1.15); filter: brightness(1.8); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
 
 .hand-type-line {
   text-align: center;
