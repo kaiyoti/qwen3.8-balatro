@@ -293,10 +293,9 @@ class PlayScene extends Phaser.Scene {
       // Rotation: outer cards rotate more
       const angle = offset * totalAngle;
 
-      // Selected cards lift up
-      if (isSelected) {
-        y -= 30;
-      }
+      // Selected cards: start at normal pos, tween to "slid out" position
+      const slideX = isSelected ? x - 40 : x;
+      const slideY = isSelected ? y - 25 : y;
 
       const sprite = this.createCardSprite(card, x, y, angle, isSelected);
       sprite.setDepth(isSelected ? 15 : 10);
@@ -308,6 +307,17 @@ class PlayScene extends Phaser.Scene {
         }
       });
       this.cardSprites.push(sprite);
+
+      // Animate selected cards sliding out
+      if (isSelected) {
+        this.tweens.add({
+          targets: sprite,
+          x: slideX,
+          y: slideY,
+          duration: dur(150),
+          ease: 'Quad.easeOut',
+        });
+      }
     });
   }
 
