@@ -219,9 +219,9 @@ class PlayScene extends Phaser.Scene {
       // Card body (white, like playing cards)
       const body = this.add.graphics().setDepth(5);
       body.fillStyle(0xf5f0e8, 1);
-      body.fillRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
+      body.fillRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 5);
       body.lineStyle(3, 0x222222, 1);
-      body.strokeRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
+      body.strokeRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 5);
 
       // Rarity strip (colored bar at top of card)
       const rarityColor = RARITY_COLORS[j.rarity] || 0x555555;
@@ -314,7 +314,7 @@ class PlayScene extends Phaser.Scene {
     // shadow was appended after, so the opaque shadow covered part of the
     // highlight ring on its offset side, making the shadow look like it was
     // cutting *into* the highlight instead of sitting outside/behind it.
-    const R = 8;
+    const R = 5;
     const shadow = this.add.graphics();
     shadow.fillStyle(0x0a0a15, 1);
     shadow.fillRoundedRect(4 - CARD_W / 2, 4 - CARD_H / 2, CARD_W, CARD_H, R);
