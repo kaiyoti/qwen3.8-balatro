@@ -1,0 +1,321 @@
+/* =====================================================================
+   Balatro Clone — Phase 2: Pixel-art style, sidebar + Phaser layout
+   ===================================================================== */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('fonts/PressStart2P-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-dark: #1a1a2e;
+  --bg-panel: #16213e;
+  --bg-panel-border: #0f3460;
+  --accent-blue: #4a90d9;
+  --accent-red: #d9534f;
+  --accent-gold: #e8a020;
+  --accent-green: #4cc38a;
+  --text: #e8e8e8;
+  --text-dim: #8899aa;
+  --shadow: #0a0a15;
+  --card-w: 80px;
+  --card-h: 112px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-dark);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+.pixel {
+  font-family: 'Press Start 2P', monospace;
+  image-rendering: pixelated;
+}
+
+#app {
+  display: flex;
+  width: 100%; height: 100vh;
+}
+
+/* ===== SIDEBAR ===== */
+#sidebar {
+  width: 25%;
+  min-width: 240px;
+  max-width: 320px;
+  height: 100%;
+  background: var(--bg-panel);
+  border-right: 4px solid var(--bg-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  z-index: 10;
+}
+
+.side-panel {
+  background: var(--bg-dark);
+  border: 3px solid var(--bg-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.blind-banner {
+  font-size: 11px;
+  color: var(--accent-gold);
+  text-align: center;
+  padding: 6px 0;
+  border-bottom: 2px solid var(--bg-panel-border);
+  margin-bottom: 8px;
+}
+
+.blind-target {
+  font-size: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.target-icon { color: var(--accent-gold); font-size: 16px; }
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score-row .label { font-size: 11px; color: var(--text-dim); }
+.score-row .value { font-size: 14px; color: #fff; }
+
+/* Splash: chips x mult blobs */
+.splash-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.splash-blob {
+  width: 72px; height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  border: 3px solid rgba(0,0,0,0.4);
+  box-shadow: 3px 3px 0 var(--shadow);
+}
+
+.chips-blob { background: linear-gradient(135deg, #4a90d9, #2a5fa0); }
+.mult-blob  { background: linear-gradient(135deg, #d9534f, #a03030); }
+.splash-x   { font-size: 18px; color: #fff; }
+
+.hand-type-line {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Counters */
+.counter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.counter-row:last-child { margin-bottom: 0; }
+
+.counter-box {
+  flex: 1;
+  text-align: center;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid var(--bg-panel-border);
+  border-radius: 4px;
+  padding: 6px 4px;
+}
+
+.counter-box .counter-label {
+  display: block;
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.counter-box .counter-val {
+  font-size: 14px;
+  color: #fff;
+}
+
+.money-box .counter-val { color: var(--accent-green); }
+
+/* Buttons in sidebar */
+#panel-buttons {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 10px 12px;
+  border: 3px solid rgba(0,0,0,0.5);
+  border-radius: 4px;
+  cursor: pointer;
+  color: #fff;
+  background: #3a3a5c;
+  box-shadow: 3px 3px 0 var(--shadow);
+  transition: transform 0.05s;
+}
+
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-play     { background: #2a7a3a; }
+.btn-discard  { background: #8a3a3a; }
+.btn-primary  { background: #2a5a8a; }
+.btn-small    { font-size: 8px; padding: 8px 10px; }
+
+.sort-row { display: flex; gap: 6px; }
+.sort-row .btn { flex: 1; }
+
+/* ===== MAIN AREA ===== */
+#main-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#game-container {
+  width: 100%; height: 100%;
+}
+
+#game-container canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ===== OVERLAYS ===== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  z-index: 20;
+}
+
+.hidden { display: none !important; }
+
+.shop-title { font-size: 20px; color: var(--accent-gold); }
+.gameover-title { font-size: 22px; color: var(--accent-red); }
+.victory-title { font-size: 22px; color: var(--accent-green); }
+
+.stats-line { font-size: 13px; color: var(--text-dim); }
+
+.payout-line {
+  font-size: 11px;
+  color: var(--accent-green);
+  margin-bottom: 8px;
+}
+
+/* Shop offers */
+.shop-offers {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 700px;
+}
+
+.shop-offer {
+  width: 120px;
+  background: var(--bg-panel);
+  border: 3px solid var(--bg-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.shop-offer.sold-out { opacity: 0.4; }
+
+.shop-offer .offer-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 3px solid var(--joker-frame, #555);
+}
+
+.shop-offer .offer-icon svg { width: 32px; height: 32px; }
+
+.shop-offer .offer-name { font-size: 10px; margin-bottom: 4px; }
+.shop-offer .offer-text { font-size: 9px; color: var(--text-dim); margin-bottom: 6px; min-height: 36px; }
+.shop-offer .offer-price { font-size: 12px; color: var(--accent-green); margin-bottom: 6px; }
+.shop-offer .rarity-tag {
+  display: inline-block;
+  font-size: 7px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.rarity-common   { background: #4a90d9; color: #fff; }
+.rarity-uncommon { background: #9b6ad6; color: #fff; }
+.rarity-rare     { background: #e8a020; color: #1a1a2e; }
+.rarity-legendary{ background: #d9534f; color: #fff; }
+
+/* Owned jokers in shop */
+.owned-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.owned-joker {
+  width: 48px; height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 3px solid var(--joker-frame, #555);
+  background: var(--bg-dark);
+}
+
+.owned-joker svg { width: 28px; height: 28px; }
+.owned-joker .oj-name { display: none; }
+.owned-joker.for-sale { border-color: var(--accent-red); }
+
+.shop-section { width: 100%; max-width: 500px; }
+.shop-section h3 { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+
+.shop-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.owned-empty { font-size: 11px; color: var(--text-dim); }

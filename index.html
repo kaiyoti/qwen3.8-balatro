@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balatro Clone</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Left sidebar (DOM) -->
+  <aside id="sidebar">
+    <div class="side-panel" id="panel-blind">
+      <div class="blind-banner pixel" id="hud-blind">Small Blind</div>
+      <div class="blind-target">
+        <span class="target-icon">&#9733;</span>
+        <span id="hud-target">Score at least 300</span>
+      </div>
+      <div class="score-row">
+        <span class="label">Round Score</span>
+        <span class="value pixel" id="hud-score">0</span>
+      </div>
+    </div>
+    <div class="side-panel" id="panel-splash">
+      <div class="splash-row">
+        <div class="splash-blob chips-blob">
+          <span class="pixel" id="splash-chips">0</span>
+        </div>
+        <span class="splash-x pixel">&times;</span>
+        <div class="splash-blob mult-blob">
+          <span class="pixel" id="splash-mult">0</span>
+        </div>
+      </div>
+      <div class="hand-type-line" id="hand-type-name">—</div>
+    </div>
+    <div class="side-panel" id="panel-counters">
+      <div class="counter-row">
+        <div class="counter-box">
+          <span class="counter-label">Hands</span>
+          <span class="counter-val pixel" id="hud-plays">4</span>
+        </div>
+        <div class="counter-box">
+          <span class="counter-label">Discards</span>
+          <span class="counter-val pixel" id="hud-discards">3</span>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="counter-box money-box">
+          <span class="counter-label">Money</span>
+          <span class="counter-val pixel" id="hud-money">$4</span>
+        </div>
+        <div class="counter-box">
+          <span class="counter-label">Ante</span>
+          <span class="counter-val pixel" id="hud-ante">1</span>
+        </div>
+      </div>
+    </div>
+    <div class="side-panel" id="panel-buttons">
+      <button id="btn-play" class="btn btn-play">PLAY HAND</button>
+      <button id="btn-discard" class="btn btn-discard">DISCARD</button>
+      <div class="sort-row">
+        <button id="btn-sort-rank" class="btn btn-small">SORT RANK</button>
+        <button id="btn-sort-suit" class="btn btn-small">SORT SUIT</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main play area (Phaser canvas + overlays) -->
+  <main id="main-area">
+    <div id="game-container"></div>
+
+    <!-- Shop overlay -->
+    <div id="screen-shop" class="overlay hidden">
+      <h2 class="pixel shop-title">SHOP</h2>
+      <div id="shop-last-payout" class="payout-line"></div>
+      <div id="shop-offers" class="shop-offers"></div>
+      <div class="shop-section">
+        <h3>Owned Jokers</h3>
+        <div id="shop-owned" class="owned-row"></div>
+      </div>
+      <div class="shop-actions">
+        <button id="btn-reroll" class="btn">Reroll ($5)</button>
+        <button id="btn-skip-blind" class="btn">Skip Blind ($4)</button>
+        <button id="btn-sell-mode" class="btn btn-small">Sell Jokers</button>
+        <button id="btn-next-blind" class="btn btn-primary">NEXT BLIND</button>
+      </div>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="screen-gameover" class="overlay hidden">
+      <h1 class="pixel gameover-title">GAME OVER</h1>
+      <p id="gameover-stats" class="stats-line"></p>
+      <button id="btn-new-run" class="btn btn-primary">NEW RUN</button>
+    </div>
+
+    <!-- Victory overlay -->
+    <div id="screen-victory" class="overlay hidden">
+      <h1 class="pixel victory-title">VICTORY!</h1>
+      <p id="victory-stats" class="stats-line"></p>
+      <button id="btn-new-run-2" class="btn btn-primary">NEW RUN</button>
+    </div>
+  </main>
+</div>
+
+<script src="lib/phaser.min.js"></script>
+<script src="game.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>
