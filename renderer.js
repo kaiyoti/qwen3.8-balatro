@@ -113,13 +113,15 @@ class PlayScene extends Phaser.Scene {
     // Background: dark blue gradient
     const w = this.scale.width;
     const h = this.scale.height;
-    const bg = this.add.rectangle(w / 2, h / 2, w, h, BG_COLOR);
-    bg.setDepth(-10);
+    this.bgRect = this.add.rectangle(w / 2, h / 2, w, h, BG_COLOR);
+    this.bgRect.setDepth(-10);
 
     // Subtle grid pattern for texture
+    this.gridSprites = [];
     for (let x = 0; x < w; x += 32) {
       for (let y = 0; y < h; y += 32) {
-        this.add.rectangle(x, y, 1, 1, 0x2a2a5e).setDepth(-9);
+        const dot = this.add.rectangle(x, y, 1, 1, 0x2a2a5e).setDepth(-9);
+        this.gridSprites.push(dot);
       }
     }
 
@@ -135,8 +137,41 @@ class PlayScene extends Phaser.Scene {
     // Hand zone (bottom)
     this.handY = h - 110;
 
+    // Handle window resize
+    this.game.events.on('resize', () => this.relayout());
+
     // Initial render
     this.renderState();
+  }
+
+  relayout() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    // Update background
+    this.bgRect.setPosition(w / 2, h / 2).setSize(w, h);
+
+    // Rebuild grid
+    if (this.gridSprites) {
+      this.gridSprites.forEach(s => s.destroy());
+      this.gridSprites = [];
+      for (let x = 0; x < w; x += 32) {
+        for (let y = 0; y < h; y += 32) {
+          const dot = this.add.rectangle(x, y, 1, 1, 0x2a2a5e).setDepth(-9);
+          this.gridSprites.push(dot);
+        }
+      }
+    }
+
+    // Reposition play area
+    this.playAreaY = h * 0.45;
+    this.playArea.setPosition(w / 2, this.playAreaY).setSize(w * 0.7, 140);
+
+    // Reposition hand zone
+    this.handY = h - 110;
+
+    // Re-render all content at new positions
+    this.lastStateHash = '';
   }
 
   update() {
@@ -187,19 +222,34 @@ class PlayScene extends Phaser.Scene {
 
     const w = this.scale.width;
     const h = this.scale.height;
-    const px = w - 50;
-    const py = h - 60;
+    const px = w - 44;
+    const py = h - 56;
+    const dw = 44, dh = 62;
 
     // Stacked card-back rectangles (3 offset for depth)
     for (let i = 2; i >= 0; i--) {
-      const rect = this.add.rectangle(px + i * 2, py + i * 2, 32, 44, 0x1a2a4e)
-        .setStrokeStyle(2, 0x3a5a8e).setDepth(3);
-      this.deckPileSprites.push(rect);
+      const g = this.add.graphics().setDepth(3);
+      const ox = px + i * 3, oy = py + i * 3;
+      // Card back: dark blue with border
+      g.fillStyle(0x1a2a4e, 1);
+      g.fillRoundedRect(ox - dw/2, oy - dh/2, dw, dh, 4);
+      g.lineStyle(2, 0x3a5a8e, 1);
+      g.strokeRoundedRect(ox - dw/2, oy - dh/2, dw, dh, 4);
+      // Inner border (card back frame)
+      g.lineStyle(1, 0x4a6a9e, 1);
+      g.strokeRoundedRect(ox - dw/2 + 4, oy - dh/2 + 4, dw - 8, dh - 8, 3);
+      // Diamond pattern in center (simple cross/diamond shape)
+      g.lineStyle(1, 0x5a7aae, 0.6);
+      g.lineBetween(ox - 8, oy, ox, oy - 12);
+      g.lineBetween(ox, oy - 12, ox + 8, oy);
+      g.lineBetween(ox + 8, oy, ox, oy + 12);
+      g.lineBetween(ox, oy + 12, ox - 8, oy);
+      this.deckPileSprites.push(g);
     }
 
     // Count text
-    const countTxt = this.add.text(px, py + 28, `${state.deck.length}/52`, {
-      fontFamily: 'monospace', fontSize: '10px', fontStyle: 'bold', color: '#aabbcc',
+    const countTxt = this.add.text(px, py + dh/2 + 12, `${state.deck.length}/52`, {
+      fontFamily: 'monospace', fontSize: '12px', fontStyle: 'bold', color: '#aabbcc',
     }).setOrigin(0.5).setDepth(4);
     this.deckPileSprites.push(countTxt);
   }
@@ -437,6 +487,9 @@ class PlayScene extends Phaser.Scene {
     const w = this.scale.width;
     const targets = [];
 
+    // Dynamic spacing: scale total spread to available width (like hand fan)
+    const playSpread = Math.min(selected.length * (CARD_W * 0.75), w * 0.65);
+
     selected.forEach((handIdx, i) => {
       const sprite = this.cardSprites[handIdx];
       if (!sprite) return;
@@ -444,7 +497,7 @@ class PlayScene extends Phaser.Scene {
       const n = selected.length;
       const t = n > 1 ? i / (n - 1) : 0.5;
       const offset = t - 0.5;
-      const targetX = w / 2 + offset * (n * 60);
+      const targetX = w / 2 + offset * playSpread;
       const targetY = this.playAreaY;
 
       targets.push({ sprite, targetX, targetY });
