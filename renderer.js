@@ -133,7 +133,7 @@ class PlayScene extends Phaser.Scene {
     this.jokerY = 60;
 
     // Hand zone (bottom)
-    this.handY = h - 100;
+    this.handY = h - 110;
 
     // Initial render
     this.renderState();
@@ -354,7 +354,7 @@ class PlayScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(0, 0);
     const cornerTL_suit = this.add.text(-CARD_W / 2 + 9, -CARD_H / 2 + 35, sym, {
-      fontFamily: 'monospace', fontSize: '21px', color: colorStr, resolution: 2,
+      fontFamily: 'monospace', fontSize: '25px', color: colorStr, resolution: 2,
     }).setOrigin(0, 0);
 
     // Corner index (bottom-right): rank + suit stacked (flipped)
@@ -362,7 +362,7 @@ class PlayScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(1, 1);
     const cornerBR_suit = this.add.text(CARD_W / 2 - 9, CARD_H / 2 - 35, sym, {
-      fontFamily: 'monospace', fontSize: '21px', color: colorStr, resolution: 2,
+      fontFamily: 'monospace', fontSize: '25px', color: colorStr, resolution: 2,
     }).setOrigin(1, 1);
 
     // Pips: number cards 2-10 use layout, Ace/J/Q/K use single center
@@ -375,7 +375,7 @@ class PlayScene extends Phaser.Scene {
         const px = Math.round(-pipW / 2 + p.x * pipW);
         const py = Math.round(-pipH / 2 + p.y * pipH);
         const pip = this.add.text(px, py, sym, {
-          fontSize: '30px', color: colorStr, resolution: 2,
+          fontSize: '36px', color: colorStr, resolution: 2,
         }).setOrigin(0.5);
         if (p.flip) pip.setScale(1, -1);
         pips.push(pip);
@@ -383,7 +383,7 @@ class PlayScene extends Phaser.Scene {
     } else {
       // Single large center pip for A/J/Q/K
       const centerPip = this.add.text(0, 0, sym, {
-        fontSize: '60px', color: colorStr, resolution: 2,
+        fontSize: '72px', color: colorStr, resolution: 2,
       }).setOrigin(0.5);
       pips.push(centerPip);
     }
