@@ -175,6 +175,10 @@ console.log('\n== lastPayout recorded on win ==');
     { rank: 'J', suit: 'spade' }, { rank: 'Q', suit: 'spade' }, { rank: 'K', suit: 'spade' },
     { rank: '2', suit: 'heart' }, { rank: '3', suit: 'heart' }, { rank: '4', suit: 'heart' },
   ];
+  // Clean deck (44 = 52 minus the 8 in hand): drawn refills must carry no
+  // modifiers (gold enhancement would pay $3 at round end and perturb the
+  // payout math)
+  S().deck = G.buildDeck(true).slice(8);
   S().selected = [0, 1, 2, 3, 4];
   const m = S().money; // 4
   G.onPlayClick();

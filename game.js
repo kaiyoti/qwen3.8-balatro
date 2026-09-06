@@ -57,7 +57,9 @@ const HANDS = {
 };
 
 const BLIND_NAMES = ['Small Blind', 'Big Blind', 'Boss Blind'];
-const BLIND_TARGETS = { 1: [300, 450, 675], 2: [800, 1200, 1800], 3: [2000, 3000, 4500] };
+// Boss column = 2x small-blind base (real Balatro); per-boss multipliers
+// (Wall 4x, Needle 1x) are applied by blindTarget() when a boss is active.
+const BLIND_TARGETS = { 1: [300, 450, 600], 2: [800, 1200, 1600], 3: [2000, 3000, 4000] };
 
 const MAX_HAND_SIZE = 8;
 const MAX_SELECTED = 5;
@@ -67,6 +69,35 @@ const START_DISCARDS = 3;
 const START_MONEY = 4;
 const MAX_ANTE = 3;
 const BLIND_REWARD_BASE = 3; // $3 + $1 per unused discard
+const BOSS_REWARD_BASE = 5;  // boss blinds pay $5 base (real Balatro)
+
+// --- Boss Blinds (curated roster from balatrowiki.org, ante-gated) ---
+// minAnte: first ante this boss can appear on. targetMult: multiplier on the
+// small-blind base target (default 2x; The Wall 4x; The Needle 1x).
+// Debuffed cards: 0 base/enhancement/edition chips+mult, all card effects
+// nullified, but still count for hand detection. Face-down cards: hidden from
+// the player only — they score normally when played.
+// The boss's name/effect are hidden ("?") until the first valid play.
+const BOSS_BLINDS = [
+  // Ante 1 pool
+  { id: 'hook',     name: 'The Hook',     minAnte: 1, text: 'After each play, 2 random cards in hand are removed' },
+  { id: 'psychic',  name: 'The Psychic',  minAnte: 1, text: 'You must play exactly 5 cards' },
+  { id: 'manacle',  name: 'The Manacle',  minAnte: 1, text: 'Hand size is 7 this round' },
+  { id: 'goad',     name: 'The Goad',     minAnte: 1, text: 'All Spade cards are debuffed' },
+  { id: 'club',     name: 'The Club',     minAnte: 1, text: 'All Club cards are debuffed' },
+  { id: 'pillar',   name: 'The Pillar',   minAnte: 1, text: 'Cards played this ante (small/big) are debuffed' },
+  // Ante 2 unlocks
+  { id: 'wall',     name: 'The Wall',     minAnte: 2, targetMult: 4, text: '4x base score requirement' },
+  { id: 'flint',    name: 'The Flint',    minAnte: 2, text: 'Base chips and mult of played hands are halved' },
+  { id: 'water',    name: 'The Water',    minAnte: 2, text: 'You start with 0 discards' },
+  { id: 'arm',      name: 'The Arm',      minAnte: 2, text: 'Each played hand type is permanently leveled down 1' },
+  { id: 'mouth',    name: 'The Mouth',    minAnte: 2, text: 'Only one hand type can be played this round' },
+  { id: 'house',    name: 'The House',    minAnte: 2, text: 'Your first hand is dealt face down' },
+  { id: 'needle',   name: 'The Needle',   minAnte: 2, targetMult: 1, text: 'You can only play 1 hand' },
+  // Ante 3 unlocks
+  { id: 'eye',      name: 'The Eye',      minAnte: 3, text: 'No repeated hand types this round' },
+  { id: 'tooth',    name: 'The Tooth',    minAnte: 3, text: 'Lose $1 for each card you play' },
+];
 const INTEREST_CAP = 5;      // $1 per $5 held, wins only
 const SKIP_COST = 4;         // skipping a blind costs $4 (small/big only), no interest
 const SHOP_REROLL_BASE = 5;  // +$1 per reroll this shop, resets next shop
@@ -141,6 +172,16 @@ const PLANET_CARDS = [
   { id: 'neptune',  name: 'Neptune',  handType: 'STRAIGHT_FLUSH', text: 'Level up Straight Flush' },
 ];
 
+// Target up to n cards for a tarot: the selection if the player selected
+// anything, otherwise the first n cards of the hand (so the tarot is never
+// wasted). Destructive tarots (Hanged Man) use the selection directly.
+function targetCards(s, n) {
+  if (s.selected && s.selected.length > 0) {
+    return s.selected.slice(0, n).map(i => s.hand[i]).filter(Boolean);
+  }
+  return s.hand.slice(0, n);
+}
+
 // Tarot cards: modify cards, gain money, or destroy
 const TAROT_CARDS = [
   { id: 'hermit',   name: 'The Hermit',    text: 'Double your money (max $20)',
@@ -148,30 +189,34 @@ const TAROT_CARDS = [
   { id: 'temperance', name: 'Temperance',  text: 'Gain $ = sell value of jokers (max $50)',
     apply: (s) => { const v = Math.min(50, s.jokers.reduce((sum, j) => sum + sellPrice(j), 0)); s.money += v; } },
   { id: 'hanged',   name: 'The Hanged Man', text: 'Destroy up to 2 selected cards',
-    apply: (s) => { s.hand = s.hand.filter((_, i) => !s.selected.includes(i)); s.selected = []; drawUp(); } },
-  { id: 'lovers',   name: 'The Lovers',    text: '1 card becomes Wild',
-    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'wild'; } } },
-  { id: 'chariot',  name: 'The Chariot',   text: '1 card becomes Steel',
-    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'steel'; } } },
-  { id: 'justice',  name: 'Justice',       text: '1 card becomes Glass',
-    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'glass'; } } },
-  { id: 'devil',    name: 'The Devil',     text: '1 card becomes Gold',
-    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'gold'; } } },
-  { id: 'tower',    name: 'The Tower',     text: '1 card becomes Stone',
-    apply: (s) => { if (s.hand.length > 0) { const c = s.hand[0]; c.enhancement = 'stone'; c.rank = null; c.suit = null; } } },
-  { id: 'strength', name: 'Strength',      text: 'Up to 2 cards: rank +1',
     apply: (s) => {
-      const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K'];
-      for (let i = 0; i < Math.min(2, s.hand.length); i++) {
-        const c = s.hand[i];
-        if (c.rank && c.rank !== 'A') {
+      purpleSealCreates(s.selected.map(i => s.hand[i]).filter(Boolean));
+      s.hand = s.hand.filter((_, i) => !s.selected.includes(i));
+      s.selected = [];
+      drawUp();
+    } },
+  { id: 'lovers',   name: 'The Lovers',    text: '1 card becomes Wild',
+    apply: (s) => { const t = targetCards(s, 1); if (t.length) t[0].enhancement = 'wild'; } },
+  { id: 'chariot',  name: 'The Chariot',   text: '1 card becomes Steel',
+    apply: (s) => { const t = targetCards(s, 1); if (t.length) t[0].enhancement = 'steel'; } },
+  { id: 'justice',  name: 'Justice',       text: '1 card becomes Glass',
+    apply: (s) => { const t = targetCards(s, 1); if (t.length) t[0].enhancement = 'glass'; } },
+  { id: 'devil',    name: 'The Devil',     text: '1 card becomes Gold',
+    apply: (s) => { const t = targetCards(s, 1); if (t.length) t[0].enhancement = 'gold'; } },
+  { id: 'tower',    name: 'The Tower',     text: '1 card becomes Stone',
+    apply: (s) => { const t = targetCards(s, 1); if (t.length) { t[0].enhancement = 'stone'; t[0].rank = null; t[0].suit = null; } } },
+  { id: 'strength', name: 'Strength',      text: 'Up to 2 cards: rank +1 (K becomes A)',
+    apply: (s) => {
+      const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+      for (const c of targetCards(s, 2)) {
+        if (c.rank) {
           const idx = RANK_ORDER.indexOf(c.rank);
           if (idx >= 0 && idx < RANK_ORDER.length - 1) c.rank = RANK_ORDER[idx + 1];
         }
       }
     } },
   { id: 'sun',      name: 'The Sun',       text: 'Up to 3 cards become Hearts',
-    apply: (s) => { for (let i = 0; i < Math.min(3, s.hand.length); i++) { if (s.hand[i].suit !== null) s.hand[i].suit = 'heart'; } } },
+    apply: (s) => { for (const c of targetCards(s, 3)) { if (c.suit !== null) c.suit = 'heart'; } } },
 ];
 
 // Use a consumable by index (removes it from the slot)
@@ -197,6 +242,17 @@ function addConsumable(con) {
   if (state.consumables.length >= MAX_CONSUMABLES) return false;
   state.consumables.push(con);
   return true;
+}
+
+// Purple Seal: each purple-sealed card being discarded creates a random
+// tarot. Overflow past the slot limit is lost.
+function purpleSealCreates(cards) {
+  for (const c of cards) {
+    if (c && c.seal === 'purple') {
+      const t = TAROT_CARDS[Math.floor(Math.random() * TAROT_CARDS.length)];
+      addConsumable({ type: 'tarot', id: t.id, name: t.name });
+    }
+  }
 }
 
 // Standard poker hand ranking (for "or better" joker conditions)
@@ -395,6 +451,11 @@ function createRunState() {
     jokers: [],
     consumables: [], // tarot/planet/spectral cards (max 4)
     handLevels: {},  // { PAIR: 0, TWO_PAIR: 0, ... } per-run leveling
+    lastHandType: null, // hand type of last play this round (Blue Seal); null if none
+    boss: null,      // { id, name, text, targetMult, revealed } active boss blind
+    bossSeen: [],    // boss ids already appeared this run (no repeats until all seen)
+    playedThisAnte: [],  // "rank-suit" keys played during small/big of this ante (The Pillar)
+    playedHandTypes: [], // hand types played this round (The Mouth / The Eye)
     screen: 'play', // 'play' | 'shop' | 'gameover' | 'victory'
     shop: null,     // { offers: [joker|null x5], rerollCost }
     lastPayout: null,
@@ -403,7 +464,14 @@ function createRunState() {
 }
 
 function blindName() { return BLIND_NAMES[state.blindIdx]; }
-function blindTarget() { return BLIND_TARGETS[state.ante][state.blindIdx]; }
+// Boss targets scale off the small-blind base by the boss's targetMult
+// (default 2x; The Wall 4x; The Needle 1x).
+function blindTarget() {
+  if (state.blindIdx === 2 && state.boss) {
+    return Math.round(BLIND_TARGETS[state.ante][0] * state.boss.targetMult);
+  }
+  return BLIND_TARGETS[state.ante][state.blindIdx];
+}
 
 /* ---------------- 3. DECK ---------------- */
 
@@ -434,13 +502,63 @@ function shuffle(arr) {
   return arr;
 }
 
+// Roll the boss for this round: random from the ante-eligible pool
+// (minAnte <= current ante), with no repeat until every eligible boss has
+// appeared once (real Balatro's fewest-appearances rule, simplified).
+function rollBoss(ante) {
+  const eligible = BOSS_BLINDS.filter(b => b.minAnte <= ante);
+  let pool = eligible.filter(b => !state.bossSeen.includes(b.id));
+  if (pool.length === 0) pool = eligible;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Effective hand size (The Manacle: 7)
+function effMaxHand() {
+  return state.boss && state.boss.id === 'manacle' ? MAX_HAND_SIZE - 1 : MAX_HAND_SIZE;
+}
+
+// Round-start boss effects (called after the deck/hand are built)
+function applyBossSetup() {
+  const b = state.boss;
+  if (!b) return;
+  const all = () => [...state.hand, ...state.deck];
+  switch (b.id) {
+    case 'water':  state.discardsLeft = 0; break;
+    case 'needle': state.playsLeft = 1; break;
+    case 'house':  state.hand.forEach(c => { c.faceDown = true; }); break;
+    case 'goad':   all().forEach(c => { if (c.suit === 'spade') c.debuffed = true; }); break;
+    case 'club':   all().forEach(c => { if (c.suit === 'club') c.debuffed = true; }); break;
+    case 'pillar':
+      if (state.playedThisAnte.length > 0) {
+        all().forEach(c => {
+          if (c.rank !== null && state.playedThisAnte.includes(c.rank + '-' + c.suit)) {
+            c.debuffed = true;
+          }
+        });
+      }
+      break;
+  }
+}
+
 function startBlind() {
   state.roundScore = 0;
   state.playsLeft = START_PLAYS;
   state.discardsLeft = START_DISCARDS;
+  state.playedHandTypes = [];
+  if (state.blindIdx === 0) state.playedThisAnte = [];
+  // Roll the boss before building the deck/hand so its setup can apply
+  if (state.blindIdx === 2) {
+    const b = rollBoss(state.ante);
+    state.boss = { id: b.id, name: b.name, text: b.text, targetMult: b.targetMult || 2, revealed: false };
+    state.bossSeen.push(state.boss.id);
+  } else {
+    state.boss = null;
+  }
   state.deck = shuffle(buildDeck());
-  state.hand = state.deck.splice(0, MAX_HAND_SIZE);
+  state.hand = state.deck.splice(0, effMaxHand());
   state.selected = [];
+  state.lastHandType = null;
+  applyBossSetup();
   state.screen = 'play';
 }
 
@@ -539,7 +657,11 @@ function evaluateHand(cards) {
 function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, handLevels = null) {
   const ev = evaluateHand(cards);
   // Use leveled base if handLevels provided
-  const base = handLevels ? getHandBase(ev.type, handLevels) : ev.base;
+  let base = handLevels ? getHandBase(ev.type, handLevels) : ev.base;
+  // The Flint: base chips/mult of played hands halved for the round
+  if (state && state.boss && state.boss.id === 'flint') {
+    base = { chips: Math.floor(base.chips / 2), mult: Math.floor(base.mult / 2) };
+  }
   const ctx = {
     cards,
     handType: ev.type,
@@ -552,6 +674,9 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, han
   // --- Chips pass ---
   let chips = base.chips;
   for (const c of ev.scoring) {
+    // Debuffed cards (boss blinds) contribute nothing but still count for
+    // hand detection — they are already in ev.scoring.
+    if (c.debuffed) continue;
     // Base chip value (Stone = 0, no rank)
     if (c.rank !== null) chips += CHIP_VALUE[c.rank] || 0;
     // Enhancement chips
@@ -579,6 +704,7 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, han
   // --- Mult pass ---
   let mult = base.mult;
   for (const c of ev.scoring) {
+    if (c.debuffed) continue;
     if (c.enhancement === 'mult') mult += 4;
     if (c.enhancement === 'lucky' && Math.random() < 0.2) mult += 20;
     if (c.edition === 'holographic') mult += 10;
@@ -594,9 +720,11 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, han
   // --- xMult pass ---
   const heldCards = hand || cards; // Steel applies to held (unplayed) cards
   for (const c of heldCards) {
+    if (c.debuffed) continue;
     if (c.enhancement === 'steel') mult *= 1.5;
   }
   for (const c of ev.scoring) {
+    if (c.debuffed) continue;
     if (c.enhancement === 'glass') mult *= 2;
     if (c.edition === 'polychrome') mult *= 1.5;
   }
@@ -608,8 +736,16 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null, han
     if (j.edition === 'polychrome') mult *= 1.5;
   }
 
+  // --- Money pass (Gold Seal, Lucky) ---
+  let money = 0;
+  for (const c of ev.scoring) {
+    if (c.debuffed) continue;
+    if (c.seal === 'gold') money += 3;
+    if (c.enhancement === 'lucky' && Math.random() < 1 / 15) money += 20;
+  }
+
   mult = Math.round(mult * 100) / 100; // avoid floating point drift
-  return { chips, mult, total: Math.round(chips * mult * 100) / 100, eval: ev };
+  return { chips, mult, total: Math.round(chips * mult * 100) / 100, eval: ev, money };
 }
 
 /* ---------------- 6. ECONOMY ---------------- */
@@ -624,8 +760,9 @@ function interest(money) {
   return Math.min(INTEREST_CAP, Math.floor(money / 5));
 }
 
-function applyBlindClearPayout(money, discardsLeft) {
-  const reward = blindReward(discardsLeft);
+function applyBlindClearPayout(money, discardsLeft, isBoss = false) {
+  const base = isBoss ? BOSS_REWARD_BASE : BLIND_REWARD_BASE;
+  const reward = base + discardsLeft;
   const int = interest(money);
   return { money: money + reward + int, reward, interest: int };
 }
@@ -768,20 +905,85 @@ function removeSelectedCards() {
   state.selected = [];
 }
 
+// Boss play restrictions. Returns an error string if the play is invalid,
+// else null. Restrictions apply from round start, even while the boss's
+// identity is still hidden (that's the point of the "?" reveal).
+function bossPlayError(handType, cardCount) {
+  const b = state.boss;
+  if (!b) return null;
+  switch (b.id) {
+    case 'psychic':
+      if (cardCount !== 5) return 'The Psychic: you must play exactly 5 cards';
+      break;
+    case 'mouth':
+      if (state.playedHandTypes.length > 0 && state.playedHandTypes[0] !== handType) {
+        return 'The Mouth: only one hand type can be played this round';
+      }
+      break;
+    case 'eye':
+      if (state.playedHandTypes.includes(handType)) {
+        return 'The Eye: no repeated hand types this round';
+      }
+      break;
+  }
+  return null;
+}
+
+// Per-play boss effects, applied after a valid play.
+function applyBossOnPlay(handType, cardCount) {
+  const b = state.boss;
+  if (!b) return;
+  switch (b.id) {
+    case 'hook': {
+      // Remove up to 2 random cards from hand back into the deck
+      for (let k = 0; k < 2 && state.hand.length > 0; k++) {
+        const i = Math.floor(Math.random() * state.hand.length);
+        state.deck.push(state.hand.splice(i, 1)[0]);
+      }
+      break;
+    }
+    case 'arm':
+      // Permanently level the played hand type down by 1 (min 0)
+      if (state.handLevels[handType]) {
+        state.handLevels[handType] = Math.max(0, state.handLevels[handType] - 1);
+      }
+      break;
+    case 'tooth':
+      state.money = Math.max(0, state.money - cardCount);
+      break;
+  }
+}
+
 function onPlayClick() {
   if (state.selected.length === 0 || state.playsLeft <= 0) return;
-  const s = computePlayScore(selectedCards(), state.jokers, state.discardsLeft, state.hand, state.handLevels);
+  const played = selectedCards();
+  // Boss restriction check (before scoring); blocked plays don't reveal
+  const preEv = evaluateHand(played);
+  const err = bossPlayError(preEv.type, played.length);
+  if (err) { setStatus(err); render(); return; }
+
+  const s = computePlayScore(played, state.jokers, state.discardsLeft, state.hand, state.handLevels);
+  // Track cards played this ante (small/big only) for The Pillar
+  if (state.blindIdx !== 2) {
+    for (const c of played) state.playedThisAnte.push(c.rank + '-' + c.suit);
+  }
+  state.playedHandTypes.push(s.eval.type);
+  if (state.boss) state.boss.revealed = true;
+  state.lastHandType = s.eval.type;
   state.playsLeft -= 1;
   removeSelectedCards();
   drawUp();
   if (state.sortMode) sortHand(state.sortMode);
   state.roundScore += s.total;
+  if (s.money) state.money += s.money;
+  applyBossOnPlay(s.eval.type, played.length);
 
   const result = blindResult(state.roundScore, state.playsLeft, blindTarget());
   if (result === 'won') {
     onBlindCleared();
   } else {
-    setStatus(`Played ${s.eval.name}: ${s.chips} chips × ${s.mult} mult = ${s.total} (total ${state.roundScore}/${blindTarget()})`);
+    const earned = s.money ? ` (+$${s.money})` : '';
+    setStatus(`Played ${s.eval.name}: ${s.chips} chips × ${s.mult} mult = ${s.total} (total ${state.roundScore}/${blindTarget()})${earned}`);
     if (result === 'lost') onBlindLost();
   }
   render();
@@ -798,7 +1000,7 @@ function onBlindCleared() {
   // Round-end hooks (card modifiers)
   applyRoundEndHooks();
 
-  const payout = applyBlindClearPayout(state.money, state.discardsLeft);
+  const payout = applyBlindClearPayout(state.money, state.discardsLeft, state.blindIdx === 2);
   state.money = payout.money;
   state.lastPayout = { ...payout, blind: blindName() };
   const next = nextBlind(state.ante, state.blindIdx);
@@ -811,11 +1013,22 @@ function onBlindCleared() {
   enterShop();
 }
 
-// Round-end effects: Gold enhancement, Rental sticker, Glass destruction
+// Round-end effects: Gold enhancement, Blue Seal, Rental sticker, Glass destruction
 function applyRoundEndHooks() {
   // Gold: +$3 per gold-enhanced card still in hand
   for (const c of state.hand) {
     if (c.enhancement === 'gold') state.money += 3;
+  }
+  // Blue Seal: each blue-sealed card held (not played) creates the planet
+  // for the hand type last played this round. Skipped if no hand was played;
+  // overflow past the slot limit is lost.
+  if (state.lastHandType) {
+    const planet = PLANET_CARDS.find(p => p.handType === state.lastHandType);
+    for (const c of state.hand) {
+      if (c.seal === 'blue' && planet) {
+        addConsumable({ type: 'planet', id: planet.id, name: planet.name });
+      }
+    }
   }
   // Rental: -$3 per rental-stickered joker
   for (const j of state.jokers) {
@@ -858,6 +1071,7 @@ function nextBlind(ante, blindIdx) {
 function onDiscardClick() {
   if (state.selected.length === 0 || state.discardsLeft <= 0) return;
   const n = state.selected.length;
+  purpleSealCreates(selectedCards());
   state.discardsLeft -= 1;
   removeSelectedCards();
   drawUp();
@@ -923,7 +1137,18 @@ function setStatus(msg) {
 
 function renderHUD() {
   if (!IS_BROWSER) return;
-  $('hud-blind').textContent = blindName();
+  // Boss blind: hidden as "?" until the first valid play reveals it
+  const isBoss = state.blindIdx === 2 && state.boss;
+  $('hud-blind').textContent = isBoss ? (state.boss.revealed ? state.boss.name : 'Boss Blind ?') : blindName();
+  const eff = $('boss-effect');
+  if (eff) {
+    if (isBoss) {
+      eff.textContent = state.boss.revealed ? state.boss.text : '???';
+      eff.style.visibility = 'visible';
+    } else {
+      eff.style.visibility = 'hidden';
+    }
+  }
   $('hud-target').textContent = `Score at least ${blindTarget()}`;
   $('hud-score').textContent = state.roundScore;
   $('hud-money').textContent = `$${state.money}`;
@@ -939,7 +1164,8 @@ function renderSplash() {
     const r = computePlayScore(sel, state.jokers, state.discardsLeft, state.hand, state.handLevels);
     $('splash-chips').textContent = r.chips;
     $('splash-mult').textContent = r.mult;
-    $('hand-type-name').textContent = r.eval.name;
+    // A hand containing face-down cards shows as "???" (values hidden)
+    $('hand-type-name').textContent = sel.some(c => c.faceDown) ? '???' : r.eval.name;
   } else {
     $('splash-chips').textContent = '0';
     $('splash-mult').textContent = '0';
@@ -1131,5 +1357,7 @@ if (typeof module !== 'undefined' && module.exports) {
     rollCardModifiers, rollJokerModifiers, applyRoundEndHooks,
     PLANET_LEVELS, getHandBase, PLANET_CARDS, TAROT_CARDS,
     MAX_CONSUMABLES, useConsumable, addConsumable,
+    BOSS_BLINDS, BOSS_REWARD_BASE, rollBoss, effMaxHand, applyBossSetup,
+    bossPlayError, applyBossOnPlay, blindTarget,
   };
 }

@@ -183,16 +183,172 @@ console.log('== Consumable slot limits ==');
   check('Use out of bounds returns false', G.useConsumable(0) === false);
 }
 
-console.log('== Blue Seal creates planet card ==');
+console.log('== Blue Seal (round-end hook) ==');
 
+// Blue-sealed card held at round end -> planet for the hand type last played
 {
-  // Simulate: Blue Seal on a card, last hand type was PAIR
+  G.newRun();
   const s = G.getState();
   s.consumables = [];
-  // Blue Seal effect: create a planet card for last played hand type
-  // (This is tested via the round-end hook, but we test the creation directly)
-  const created = G.addConsumable({ type: 'planet', id: 'mercury', name: 'Mercury' });
-  check('Blue Seal: can add planet to consumables', created === true);
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'blue' }, { rank: '7', suit: 'heart' }];
+  s.lastHandType = 'PAIR';
+  G.applyRoundEndHooks();
+  check('Blue Seal: creates Mercury for last PAIR',
+    s.consumables.length === 1 && s.consumables[0].type === 'planet' && s.consumables[0].id === 'mercury');
+}
+
+// One planet per blue-sealed card held
+{
+  G.newRun();
+  const s = G.getState();
+  s.consumables = [];
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'blue' }, { rank: '6', suit: 'spade', seal: 'blue' }];
+  s.lastHandType = 'FLUSH';
+  G.applyRoundEndHooks();
+  check('Blue Seal: 2 blue cards -> 2 Jupiter planets',
+    s.consumables.length === 2 && s.consumables.every(c => c.id === 'jupiter'));
+}
+
+// No hand played this round -> no planet
+{
+  G.newRun();
+  const s = G.getState();
+  s.consumables = [];
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'blue' }];
+  s.lastHandType = null;
+  G.applyRoundEndHooks();
+  check('Blue Seal: no hand played -> no planet', s.consumables.length === 0);
+}
+
+// Slot full -> planet lost
+{
+  G.newRun();
+  const s = G.getState();
+  s.consumables = [
+    { type: 'tarot', id: 'hermit', name: 'fill1' }, { type: 'tarot', id: 'hermit', name: 'fill2' },
+    { type: 'tarot', id: 'hermit', name: 'fill3' }, { type: 'tarot', id: 'hermit', name: 'fill4' },
+  ];
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'blue' }];
+  s.lastHandType = 'PAIR';
+  G.applyRoundEndHooks();
+  check('Blue Seal: slot full -> planet lost', s.consumables.length === 4);
+}
+
+// onPlayClick records the hand type for Blue Seal
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [
+    { rank: 'A', suit: 'spade' }, { rank: 'A', suit: 'heart' },
+    { rank: '2', suit: 'spade' }, { rank: '3', suit: 'spade' },
+    { rank: '4', suit: 'spade' }, { rank: '5', suit: 'spade' },
+  ];
+  s.selected = [0, 1];
+  s.lastHandType = null;
+  G.onPlayClick();
+  check('onPlayClick: records lastHandType PAIR', s.lastHandType === 'PAIR');
+}
+
+console.log('== Purple Seal (creates tarot on discard) ==');
+
+// Discarding a purple-sealed card creates a random tarot
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'purple' }, { rank: '7', suit: 'heart' }];
+  s.deck = G.buildDeck(true).slice();
+  s.selected = [0];
+  s.consumables = [];
+  G.onDiscardClick();
+  const con = s.consumables[0];
+  const validId = con && G.TAROT_CARDS.some(t => t.id === con.id);
+  check('Purple Seal: discard creates a valid tarot',
+    s.consumables.length === 1 && con.type === 'tarot' && validId);
+  check('Purple Seal: card was discarded', !s.hand.some(c => c.seal === 'purple'));
+}
+
+// Hanged Man destruction also triggers Purple Seal
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: '5', suit: 'spade', seal: 'purple' }, { rank: '7', suit: 'heart' }];
+  s.deck = G.buildDeck(true).slice();
+  s.selected = [0];
+  s.consumables = [{ type: 'tarot', id: 'hanged', name: 'The Hanged Man' }];
+  G.useConsumable(0);
+  check('Purple Seal via Hanged Man: hanged consumed, 1 tarot created',
+    s.consumables.length === 1 && s.consumables[0].type === 'tarot');
+}
+
+console.log('== Tarot cards (remaining five) ==');
+
+// Temperance: $ = sum of joker sell values, max $50
+{
+  G.newRun();
+  const s = G.getState();
+  s.jokers = [G.JOKERS[0], G.JOKERS[1]];
+  const expected = Math.min(50, s.jokers.reduce((sum, j) => sum + G.sellPrice(j), 0));
+  s.money = 10;
+  s.consumables = [{ type: 'tarot', id: 'temperance', name: 'Temperance' }];
+  G.useConsumable(0);
+  check(`Temperance: +$${expected} from joker sell values`, s.money === 10 + expected);
+}
+
+// Chariot: targets the selected card, not hand[0]
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: '5', suit: 'spade' }, { rank: '7', suit: 'heart' }];
+  s.selected = [1];
+  s.consumables = [{ type: 'tarot', id: 'chariot', name: 'The Chariot' }];
+  G.useConsumable(0);
+  check('Chariot: selected card becomes Steel', s.hand[1].enhancement === 'steel');
+  check('Chariot: unselected card untouched', s.hand[0].enhancement === undefined);
+}
+
+// Justice: selected card becomes Glass
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: '5', suit: 'spade' }, { rank: '7', suit: 'heart' }];
+  s.selected = [0];
+  s.consumables = [{ type: 'tarot', id: 'justice', name: 'Justice' }];
+  G.useConsumable(0);
+  check('Justice: selected card becomes Glass', s.hand[0].enhancement === 'glass');
+}
+
+// Devil: no selection -> falls back to first card, becomes Gold
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: '5', suit: 'spade' }, { rank: '7', suit: 'heart' }];
+  s.selected = [];
+  s.consumables = [{ type: 'tarot', id: 'devil', name: 'The Devil' }];
+  G.useConsumable(0);
+  check('Devil: fallback to first card, becomes Gold', s.hand[0].enhancement === 'gold');
+}
+
+// Strength: K becomes A; other selected card 9 -> 10
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: 'K', suit: 'spade' }, { rank: '9', suit: 'heart' }];
+  s.selected = [0, 1];
+  s.consumables = [{ type: 'tarot', id: 'strength', name: 'Strength' }];
+  G.useConsumable(0);
+  check('Strength: K -> A', s.hand[0].rank === 'A');
+  check('Strength: 9 -> 10', s.hand[1].rank === '10');
+}
+
+// Strength: A stays A
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [{ rank: 'A', suit: 'spade' }];
+  s.selected = [0];
+  s.consumables = [{ type: 'tarot', id: 'strength', name: 'Strength' }];
+  G.useConsumable(0);
+  check('Strength: A stays A', s.hand[0].rank === 'A');
 }
 
 // Summary

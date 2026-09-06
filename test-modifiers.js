@@ -60,11 +60,17 @@ console.log('== Enhancements ==');
   check('Stone: high card A + stone = 5 + 11 + 50 = 66 chips', r.chips === 66);
   check('Stone: in scoring set', r.eval.scoring.length === 2);
 }
-// Lucky: random, just verify it doesn't crash
+// Lucky: random, verify shape and that the $20 roll can fire
 {
   const c = card('A', 'spade', { enhancement: 'lucky' });
   const r = computePlayScore([c], []);
   check('Lucky: doesn\'t crash, mult >= 1', r.mult >= 1);
+  check('Lucky: money is 0 or 20 (1-in-15 roll)', r.money === 0 || r.money === 20);
+  let hits = 0;
+  for (let i = 0; i < 100; i++) {
+    if (computePlayScore([c], []).money === 20) hits++;
+  }
+  check('Lucky: $20 fired at least once in 100 rolls', hits >= 1);
 }
 
 console.log('== Editions (on cards) ==');
@@ -135,8 +141,37 @@ console.log('== Seals ==');
   check('Red Seal + Bonus: 5 + 11 + 30 + 41 = 87', r.chips === 87);
 }
 
-// Gold Seal: tested in round-end (not scoring)
-// Blue/Purple Seal: tested in Pass 2 (consumables)
+// Gold Seal: +$3 when this card is played and scores
+{
+  const c = card('A', 'spade', { seal: 'gold' });
+  const r = computePlayScore([c], []);
+  check('Gold Seal: scoring card earns $3', r.money === 3);
+}
+
+// Gold Seal on a non-scoring kicker: no money
+{
+  const kicker = card('K', 'heart', { seal: 'gold' });
+  const a = card('A', 'spade');
+  const r = computePlayScore([kicker, a], []);
+  check('Gold Seal: non-scoring kicker earns $0', r.money === 0);
+}
+
+// onPlayClick credits seal/lucky money to state (pair of aces, target $300 -> no blind transition)
+{
+  G.newRun();
+  const s = G.getState();
+  s.hand = [
+    card('A', 'spade', { seal: 'gold' }), card('A', 'heart'),
+    card('2', 'spade'), card('3', 'spade'),
+    card('4', 'spade'), card('5', 'spade'),
+  ];
+  s.selected = [0, 1];
+  const before = s.money;
+  G.onPlayClick();
+  check('Gold Seal: onPlayClick credits +$3', s.money === before + 3);
+}
+
+// Blue/Purple Seal: tested in Pass 2 (test-consumables.js)
 
 console.log('== Wild enhancement ==');
 
@@ -194,12 +229,21 @@ console.log('== Deck building with modifiers ==');
 {
   const d = buildDeck();
   check('Deck has 52 cards (with mods)', d.length === 52);
-  const withEnh = d.filter(c => c.enhancement);
-  const withSeal = d.filter(c => c.seal);
-  const withEdition = d.filter(c => c.edition);
-  check('Some cards have enhancements (40% rate, 52 cards)', withEnh.length > 5);
-  check('Some cards have seals (20% rate)', withSeal.length > 2);
-  check('Some cards have editions (~8% rate)', withEdition.length >= 1);
+}
+
+{
+  // 20-deck sample (1040 cards) so the rate checks are statistically tight
+  // (a single 52-card deck has ~1.3% zero-edition odds — a flaky check)
+  let enh = 0, seals = 0, editions = 0;
+  for (let i = 0; i < 20; i++) {
+    const d = buildDeck();
+    enh += d.filter(c => c.enhancement).length;
+    seals += d.filter(c => c.seal).length;
+    editions += d.filter(c => c.edition).length;
+  }
+  check('enhancements at ~40% rate (1040 cards, expected ~416)', enh >= 330);
+  check('seals at ~20% rate (expected ~208)', seals >= 140);
+  check('editions at ~8% rate (expected ~83)', editions >= 40);
 }
 
 {

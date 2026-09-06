@@ -102,17 +102,39 @@ class PlayScene extends Phaser.Scene {
     const colors = window.JOKER_ICON;
     if (!icons || !colors) return;
 
-    const SIZE = 48; // render at 48x48 for crisp pixel-art look in 64px frame
+    // Icons display at 40x40 layout px = 80x80 buffer px (2x internal res).
+    // 80x80 texture = exact 1:1 in buffer space; the old 48x48 texture was a
+    // non-integer 48->80 scale under NearestFilter (uneven chunky pixels).
+    const SIZE = 80;
     for (const id of Object.keys(icons)) {
       const uri = this.makeIconDataURI(icons[id], colors[id] || '#888888', SIZE);
       this.load.image(`joker-${id}`, uri);
     }
   }
 
+  // The game renders at 2x internal resolution (see initRenderer config):
+  // the canvas buffer is 2x the display size, the main camera zooms 2x, so
+  // layout coordinates stay in display pixels while every glyph/texture gets
+  // 2x the pixel detail (finer "pixel size"). Layout code reads these, not
+  // this.scale.width/height directly.
+  layoutW() { return this.scale.width / 2; }
+  layoutH() { return this.scale.height / 2; }
+
   create() {
+    // 2x internal resolution: buffer is 2x, camera zooms 2x, visible world
+    // is [0, layoutW] x [0, layoutH]. In this Phaser build (verified against
+    // the vendored lib/phaser.min.js) the effective transform is
+    //   screen = zoom*world + (cam - display/2) - zoom*scroll
+    // and object culling tests against [cam.x, cam.x+width] x
+    // [cam.y, cam.y+height]. With cam at (0,0) and scroll at -display/4
+    // (zoom 2) both reduce to: screen = 2*world, cull region = full buffer.
+    this.cameras.main.setZoom(2);
+    this.cameras.main.setPosition(0, 0);
+    this.cameras.main.setScroll(-this.scale.width / 4, -this.scale.height / 4);
+
     // Background: dark blue gradient
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.layoutW();
+    const h = this.layoutH();
     this.bgRect = this.add.rectangle(w / 2, h / 2, w, h, BG_COLOR);
     this.bgRect.setDepth(-10);
 
@@ -145,8 +167,8 @@ class PlayScene extends Phaser.Scene {
   }
 
   relayout() {
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.layoutW();
+    const h = this.layoutH();
 
     // Update background
     this.bgRect.setPosition(w / 2, h / 2).setSize(w, h);
@@ -220,8 +242,8 @@ class PlayScene extends Phaser.Scene {
     }
     this.deckPileSprites = [];
 
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const w = this.layoutW();
+    const h = this.layoutH();
     const px = w - 44;
     const py = h - 56;
     const dw = 44, dh = 62;
@@ -260,7 +282,7 @@ class PlayScene extends Phaser.Scene {
     this.jokerSprites.forEach(s => s.destroy());
     this.jokerSprites = [];
 
-    const w = this.scale.width;
+    const w = this.layoutW();
     const count = Math.min(state.jokers.length, 5);
     if (count === 0) return;
 
@@ -322,7 +344,7 @@ class PlayScene extends Phaser.Scene {
     const n = hand.length;
     if (n === 0) return;
 
-    const w = this.scale.width;
+    const w = this.layoutW();
     const cx = w / 2;
 
     // Arc parameters
@@ -420,6 +442,23 @@ class PlayScene extends Phaser.Scene {
     body.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
     body.setDepth(1);
 
+    // Face-down (boss blinds): card back with a "?", value hidden from player
+    if (card.faceDown) {
+      const back = this.add.graphics();
+      back.fillStyle(0x2b2b6e, 1);
+      back.fillRoundedRect(-CARD_W / 2 + 6, -CARD_H / 2 + 6, CARD_W - 12, CARD_H - 12, 4);
+      back.lineStyle(3, 0xf5f0e8, 1);
+      back.strokeRoundedRect(-CARD_W / 2 + 10, -CARD_H / 2 + 10, CARD_W - 20, CARD_H - 20, 3);
+      const q = this.add.text(0, 0, '?', {
+        fontFamily: 'monospace', fontSize: '80px', fontStyle: 'bold', color: '#f5f0e8', resolution: 2,
+      }).setOrigin(0.5);
+      const backObjs = [shadow, ...highlightObjs, body, back, q];
+      if (card.debuffed) backObjs.push(this.debuffMark());
+      container.add(backObjs);
+      container.setSize(CARD_W, CARD_H);
+      return container;
+    }
+
     const suitColor = SUIT_COLORS[card.suit] || 0x888888;
     const colorStr = '#' + suitColor.toString(16).padStart(6, '0');
     const sym = SUIT_SYM[card.suit] || '?';
@@ -464,10 +503,19 @@ class PlayScene extends Phaser.Scene {
       pips.push(centerPip);
     }
 
-    container.add([shadow, ...highlightObjs, body, ...pips, cornerTL_rank, cornerTL_suit, cornerBR_rank, cornerBR_suit]);
+    const extras = card.debuffed ? [this.debuffMark()] : [];
+    container.add([shadow, ...highlightObjs, body, ...pips, cornerTL_rank, cornerTL_suit, cornerBR_rank, cornerBR_suit, ...extras]);
     container.setSize(CARD_W, CARD_H);
 
     return container;
+  }
+
+  // Debuffed card marker (boss blinds): a red X over the card face
+  debuffMark() {
+    return this.add.text(0, 0, '\u2715', {
+      fontFamily: 'monospace', fontSize: '96px', fontStyle: 'bold',
+      color: '#d92b2b', stroke: '#000000', strokeThickness: 6, resolution: 2,
+    }).setOrigin(0.5).setAlpha(0.85);
   }
 
   clearCards() {
@@ -485,7 +533,7 @@ class PlayScene extends Phaser.Scene {
     const selected = state.selected;
     if (selected.length === 0) { this.isAnimating = false; return; }
 
-    const w = this.scale.width;
+    const w = this.layoutW();
     const targets = [];
 
     // Dynamic spacing: scale total spread to available width (like hand fan)
@@ -643,7 +691,7 @@ class PlayScene extends Phaser.Scene {
     const total = landedTargets.length;
     if (total === 0) { onDone(); return; }
 
-    const w = this.scale.width;
+    const w = this.layoutW();
     const offScreenX = w + CARD_W;
     let completed = 0;
 
@@ -675,7 +723,7 @@ class PlayScene extends Phaser.Scene {
     const total = selected.length;
     if (total === 0) { this.isAnimating = false; return; }
 
-    const w = this.scale.width;
+    const w = this.layoutW();
     const offScreenX = w + CARD_W;
 
     selected.forEach((handIdx, i) => {
@@ -720,18 +768,23 @@ function initRenderer() {
   const w = container.clientWidth;
   const h = container.clientHeight;
 
+  // 2x internal resolution: the canvas buffer is 2x the container size and
+  // the main camera zooms 2x (see PlayScene.create), so on-screen layout is
+  // unchanged but every texture/text glyph gets 2x pixel detail — a finer,
+  // less chunky pixel-art look. FIT (not RESIZE) keeps the fixed 2x buffer
+  // and only scales the CSS size to the container.
   const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
-    width: w,
-    height: h,
+    width: w * 2,
+    height: h * 2,
     pixelArt: true,
     antialias: false,
     roundPixels: true,
     backgroundColor: '#' + BG_COLOR.toString(16).padStart(6, '0'),
     scene: PlayScene,
     scale: {
-      mode: Phaser.Scale.RESIZE,
+      mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
   };

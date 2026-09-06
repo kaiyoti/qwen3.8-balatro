@@ -37,6 +37,17 @@ function invariants(label) {
     S().money >= 0 && S().jokers.length <= 5);
 }
 
+// Rig: startBlind rolled a random boss; force The Psychic (no round setup,
+// and its 5-card rule is satisfied by every playRoyal below) so the
+// playthrough math stays deterministic.
+function forceBoss() {
+  const s = S();
+  s.playsLeft = 4;
+  s.discardsLeft = 3;
+  s.boss = { id: 'psychic', name: 'The Psychic', text: 'You must play exactly 5 cards', targetMult: 2, revealed: false };
+  G.applyBossSetup();
+}
+
 console.log('== Full victory run (9 blinds) ==');
 {
   G.newRun();
@@ -60,34 +71,35 @@ console.log('== Full victory run (9 blinds) ==');
   check('shop is fresh after skip (reroll $5)', S().screen === 'shop' && S().shop.rerollCost === 5);
 
   G.goNextBlind();
-  // --- Ante 1 Boss: royal WITH Joker: 149 chips x 12 mult = 1788 >= 675 ---
+  forceBoss(); // ante 1 boss: deterministic The Water
+  // --- Ante 1 Boss: royal WITH Joker: 149 chips x 12 mult = 1788 >= 600 ---
   playRoyal();
   invariants('a1 boss play 1');
   check('joker applied: boss scored 1788 (149 x 12)', S().roundScore === 1788);
   check('won a1 boss -> shop (ante 2 small next)', S().screen === 'shop' && S().ante === 2 && S().blindIdx === 0);
-  check('a1 boss payout: $4 + 6 reward + 0 interest = $10', S().money === 10);
+  check('a1 boss payout: $4 + 8 reward (boss $5+3) + 0 interest = $12', S().money === 12);
 
   // Shop 3: sell the Joker back (floor(2/2) = $1)
   G.toggleSellMode();
   check('sell mode on', G.isSellMode() === true);
   G.sellJoker(0);
-  check('sold Joker: $10 -> $11, 0 jokers', S().money === 11 && S().jokers.length === 0);
+  check('sold Joker: $12 -> $13, 0 jokers', S().money === 13 && S().jokers.length === 0);
   G.toggleSellMode();
   check('sell mode off', G.isSellMode() === false);
 
   // --- Ante 2: Small (1 play), Big (2), Boss (2) ---
   G.goNextBlind(); playRoyal();
   check('won a2 small -> shop', S().screen === 'shop' && S().blindIdx === 1);
-  check('a2 small payout: 11 + 6 + 2 interest = $19', S().money === 19);
+  check('a2 small payout: 13 + 6 + 2 interest = $21', S().money === 21);
 
   G.goNextBlind(); playRoyal();
   check('a2 big play 1: 1192 < 1200, still playing', S().screen === 'play' && S().roundScore === 1192);
   playRoyal();
   invariants('a2 big play 2');
   check('won a2 big on play 2 (2384) -> shop', S().screen === 'shop' && S().roundScore === 2384);
-  check('a2 big payout: 19 + 6 + 3 interest = $28', S().money === 28);
+  check('a2 big payout: 21 + 6 + 4 interest = $31', S().money === 31);
 
-  G.goNextBlind(); playRoyal(); playRoyal();
+  G.goNextBlind(); forceBoss(); playRoyal(); playRoyal();
   check('won a2 boss on play 2 -> shop (ante 3 small next)',
     S().screen === 'shop' && S().ante === 3 && S().blindIdx === 0);
 
@@ -104,12 +116,12 @@ console.log('== Full victory run (9 blinds) ==');
   invariants('a3 big play 3');
   check('won a3 big on play 3 (3576) -> shop', S().screen === 'shop' && S().blindIdx === 2);
 
-  G.goNextBlind(); playRoyal(); playRoyal(); playRoyal();
-  check('a3 boss play 3: 3576 < 4500, still playing', S().screen === 'play' && S().playsLeft === 1);
+  G.goNextBlind(); forceBoss(); playRoyal(); playRoyal(); playRoyal();
+  check('a3 boss play 3: 3576 < 4000, still playing', S().screen === 'play' && S().playsLeft === 1);
   playRoyal();
   invariants('a3 boss play 4');
   check('won final boss on play 4 (4768) -> VICTORY', S().screen === 'victory');
-  check('final money positive and consistent', S().money >= 42);
+  check('final money: 66 + 8 reward + 5 interest (capped) = $79', S().money === 79);
 }
 
 console.log('\n== New Run reset (from victory) ==');

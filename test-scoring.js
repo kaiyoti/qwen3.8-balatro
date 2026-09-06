@@ -128,11 +128,11 @@ check('ante 3: boss -> null (victory)', nextBlind(3, 2) === null);
 check('ante 3: small -> big', JSON.stringify(nextBlind(3, 0)) === '{"ante":3,"blindIdx":1}');
 
 console.log('\n== Blind targets table ==');
-check('ante 1: 300/450/675', JSON.stringify(BLIND_TARGETS[1]) === '[300,450,675]');
-check('ante 2: 800/1200/1800', JSON.stringify(BLIND_TARGETS[2]) === '[800,1200,1800]');
-check('ante 3: 2000/3000/4500', JSON.stringify(BLIND_TARGETS[3]) === '[2000,3000,4500]');
-check('boss = 1.5x big in every ante',
-  [1, 2, 3].every(a => BLIND_TARGETS[a][2] === Math.round(BLIND_TARGETS[a][1] * 1.5)));
+check('ante 1: 300/450/600', JSON.stringify(BLIND_TARGETS[1]) === '[300,450,600]');
+check('ante 2: 800/1200/1600', JSON.stringify(BLIND_TARGETS[2]) === '[800,1200,1600]');
+check('ante 3: 2000/3000/4000', JSON.stringify(BLIND_TARGETS[3]) === '[2000,3000,4000]');
+check('boss = 2x small in every ante',
+  [1, 2, 3].every(a => BLIND_TARGETS[a][2] === BLIND_TARGETS[a][0] * 2));
 
 console.log('\n== Simulated blind (integration) ==');
 {
