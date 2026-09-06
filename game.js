@@ -665,8 +665,8 @@ function renderSplash() {
     const r = computePlayScore(sel, state.jokers, state.discardsLeft);
     $('base-chips').textContent = r.eval.base.chips;
     $('base-mult').textContent = r.eval.base.mult;
-    $('splash-chips').textContent = r.chips;
-    $('splash-mult').textContent = r.mult;
+    $('splash-chips').textContent = r.eval.base.chips;
+    $('splash-mult').textContent = r.eval.base.mult;
     $('hand-type-name').textContent = r.eval.name;
   } else {
     $('base-chips').textContent = '0';
