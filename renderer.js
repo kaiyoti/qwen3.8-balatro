@@ -217,8 +217,11 @@ class PlayScene extends Phaser.Scene {
       const y = this.jokerY + jh / 2;
 
       // Card body (white, like playing cards)
-      const body = this.add.rectangle(x, y, jw, jh, 0xf5f0e8)
-        .setStrokeStyle(3, 0x222222).setDepth(5);
+      const body = this.add.graphics().setDepth(5);
+      body.fillStyle(0xf5f0e8, 1);
+      body.fillRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
+      body.lineStyle(3, 0x222222, 1);
+      body.strokeRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
 
       // Rarity strip (colored bar at top of card)
       const rarityColor = RARITY_COLORS[j.rarity] || 0x555555;
@@ -311,19 +314,28 @@ class PlayScene extends Phaser.Scene {
     // shadow was appended after, so the opaque shadow covered part of the
     // highlight ring on its offset side, making the shadow look like it was
     // cutting *into* the highlight instead of sitting outside/behind it.
-    const shadow = this.add.rectangle(4, 4, CARD_W, CARD_H, 0x0a0a15);
+    const R = 8;
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x0a0a15, 1);
+    shadow.fillRoundedRect(4 - CARD_W / 2, 4 - CARD_H / 2, CARD_W, CARD_H, R);
     shadow.setDepth(0);
 
     const highlightObjs = [];
     if (isSelected) {
-      const highlight = this.add.rectangle(0, 0, CARD_W + 6, CARD_H + 6, 0xffffff, 0.3);
-      highlight.setStrokeStyle(3, 0x4a90d9);
+      const highlight = this.add.graphics();
+      highlight.fillStyle(0xffffff, 0.3);
+      highlight.fillRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, R + 2);
+      highlight.lineStyle(3, 0x4a90d9, 1);
+      highlight.strokeRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, R + 2);
       highlightObjs.push(highlight);
     }
 
     // Card body
-    const body = this.add.rectangle(0, 0, CARD_W, CARD_H, 0xf5f0e8);
-    body.setStrokeStyle(3, 0x222222);
+    const body = this.add.graphics();
+    body.fillStyle(0xf5f0e8, 1);
+    body.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
+    body.lineStyle(3, 0x222222, 1);
+    body.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
     body.setDepth(1);
 
     const suitColor = SUIT_COLORS[card.suit];
