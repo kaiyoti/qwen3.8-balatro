@@ -197,3 +197,7 @@
 192.168.10.47 - - [06/Sep/2026 04:39:55] "GET /style.css HTTP/1.1" 304 -
 192.168.10.47 - - [06/Sep/2026 04:39:55] "GET /game.js HTTP/1.1" 304 -
 192.168.10.47 - - [06/Sep/2026 04:39:55] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /lib/phaser.min.js HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /game.js HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /renderer.js HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 304 -
