@@ -72,6 +72,59 @@ const SKIP_COST = 4;         // skipping a blind costs $4 (small/big only), no i
 const SHOP_REROLL_BASE = 5;  // +$1 per reroll this shop, resets next shop
 const SHOP_OFFER_COUNT = 5;
 
+// --- Card Modifiers (Phase 4) ---
+
+const ENHANCEMENTS = ['bonus', 'mult', 'wild', 'glass', 'steel', 'stone', 'gold', 'lucky'];
+const SEALS = ['gold', 'red', 'blue', 'purple'];
+const EDITIONS = ['foil', 'holographic', 'polychrome', 'negative'];
+const STICKERS = ['eternal', 'perishable', 'rental'];
+
+// Appearance rates (Part A5)
+const CARD_MOD_RATES = {
+  enhancement: 0.40,  // 40% chance a card has an enhancement
+  seal: 0.20,         // 20% chance a card has a seal
+  edition: { foil: 0.04, holographic: 0.028, polychrome: 0.012 }, // mutually exclusive
+};
+const JOKER_MOD_RATES = {
+  edition: { foil: 0.02, holographic: 0.014, polychrome: 0.003, negative: 0.003 },
+  sticker: { eternal: 0.30, perishable: 0.30, rental: 0.30 }, // mutually exclusive (eternal vs perishable)
+};
+
+function rollCardModifiers() {
+  const mod = {};
+  if (Math.random() < CARD_MOD_RATES.enhancement) {
+    mod.enhancement = ENHANCEMENTS[Math.floor(Math.random() * ENHANCEMENTS.length)];
+  }
+  if (Math.random() < CARD_MOD_RATES.seal) {
+    mod.seal = SEALS[Math.floor(Math.random() * SEALS.length)];
+  }
+  const ed = Math.random();
+  let cum = 0;
+  for (const [name, rate] of Object.entries(CARD_MOD_RATES.edition)) {
+    cum += rate;
+    if (ed < cum) { mod.edition = name; break; }
+  }
+  return mod;
+}
+
+function rollJokerModifiers() {
+  const mod = {};
+  const ed = Math.random();
+  let cum = 0;
+  for (const [name, rate] of Object.entries(JOKER_MOD_RATES.edition)) {
+    cum += rate;
+    if (ed < cum) { mod.edition = name; break; }
+  }
+  const st = Math.random();
+  let cum2 = 0;
+  for (const [name, rate] of Object.entries(JOKER_MOD_RATES.sticker)) {
+    cum2 += rate;
+    if (st < cum2) { mod.sticker = name; break; }
+  }
+  // Can't be both Eternal and Perishable (mutually exclusive by design of single roll)
+  return mod;
+}
+
 // Standard poker hand ranking (for "or better" joker conditions)
 const HAND_RANK_ORDER = {
   HIGH_CARD: 0, PAIR: 1, TWO_PAIR: 2, THREE_KIND: 3, STRAIGHT: 4,
@@ -252,10 +305,20 @@ function blindTarget() { return BLIND_TARGETS[state.ante][state.blindIdx]; }
 
 /* ---------------- 3. DECK ---------------- */
 
-function buildDeck() {
+function buildDeck(noMods) {
   const deck = [];
   for (const suit of SUITS) {
-    for (const rank of RANKS) deck.push({ rank, suit });
+    for (const rank of RANKS) {
+      const card = { rank, suit };
+      if (!noMods) {
+        const mod = rollCardModifiers();
+        if (mod.enhancement) card.enhancement = mod.enhancement;
+        if (mod.seal) card.seal = mod.seal;
+        if (mod.edition) card.edition = mod.edition;
+        if (card.enhancement === 'stone') { card.rank = null; card.suit = null; }
+      }
+      deck.push(card);
+    }
   }
   return deck;
 }
@@ -302,16 +365,27 @@ function isStraightRanks(cards) {
 // Returns { type, name, base, scoring, pairCount, hasSuit }.
 // `scoring` holds only the cards that count toward the hand type —
 // kickers do not score (real Balatro rule).
+// Wild: counts as every suit for flush detection.
+// Stone: no rank/suit, always in scoring, excluded from pair/straight/flush.
 function evaluateHand(cards) {
+  // Separate Stone cards (always score, don't participate in detection)
+  const stones = cards.filter(c => c.enhancement === 'stone');
+  const regular = cards.filter(c => c.enhancement !== 'stone');
+
   const counts = {};    // rank -> count
-  const suitCounts = {}; // suit -> count
-  for (const c of cards) {
-    counts[c.rank] = (counts[c.rank] || 0) + 1;
-    suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+  const suitCounts = { spade: 0, heart: 0, diamond: 0, club: 0 };
+  for (const c of regular) {
+    if (c.rank !== null) counts[c.rank] = (counts[c.rank] || 0) + 1;
+    if (c.enhancement === 'wild') {
+      // Wild counts as every suit
+      for (const s of SUITS) suitCounts[s]++;
+    } else if (c.suit) {
+      suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+    }
   }
-  const groups = Object.values(counts).sort((a, b) => b - a); // e.g. [3,2] = full house
-  const isFlush = cards.length === 5 && Object.values(suitCounts).some(v => v === 5);
-  const isStraight = isStraightRanks(cards);
+  const groups = Object.values(counts).sort((a, b) => b - a);
+  const isFlush = regular.length === 5 && Object.values(suitCounts).some(v => v >= 5);
+  const isStraight = isStraightRanks(regular);
 
   let type;
   if (isStraight && isFlush) type = 'STRAIGHT_FLUSH';
@@ -326,35 +400,41 @@ function evaluateHand(cards) {
 
   let scoring;
   if (type === 'HIGH_CARD') {
-    scoring = [cards.reduce((a, b) => (rankValue(b.rank) > rankValue(a.rank) ? b : a))];
+    const validCards = regular.filter(c => c.rank !== null);
+    scoring = validCards.length > 0
+      ? [validCards.reduce((a, b) => (rankValue(b.rank) > rankValue(a.rank) ? b : a))]
+      : [];
   } else if (type === 'PAIR' || type === 'TWO_PAIR') {
-    scoring = cards.filter(c => counts[c.rank] === 2);
+    scoring = regular.filter(c => c.rank !== null && counts[c.rank] === 2);
   } else if (type === 'THREE_KIND') {
-    scoring = cards.filter(c => counts[c.rank] === 3);
+    scoring = regular.filter(c => c.rank !== null && counts[c.rank] === 3);
   } else if (type === 'FOUR_KIND') {
-    scoring = cards.filter(c => counts[c.rank] === 4);
+    scoring = regular.filter(c => c.rank !== null && counts[c.rank] === 4);
   } else {
-    // STRAIGHT, FLUSH, STRAIGHT_FLUSH, FULL_HOUSE: every card scores
-    scoring = cards.slice();
+    scoring = regular.filter(c => c.rank !== null).slice();
   }
+  // Stone cards always score
+  scoring = scoring.concat(stones);
 
   return {
     type,
     name: HANDS[type].name,
     base: HANDS[type],
     scoring,
-    // Each rank with count >= 2 counts as one pair (3+/4-of-a-kind = 1 pair)
     pairCount: Object.values(counts).filter(v => v >= 2).length,
     hasSuit: (s) => suitCounts[s] > 0,
   };
 }
 
 /* ---------------- 5. SCORING ----------------
-   Pipeline per requirements: base chips + scoring-card chip values, base
-   mult, then jokers in held order grouped: all +chips -> all +mult -> xmult.
+   Pipeline order (documented):
+   1. Chips: base + scoring card values + per-card enhancement chips + per-card edition chips
+   2. Mult: base + per-card enhancement mult + per-card edition mult + joker mult
+   3. xMult: Steel (×1.5/held) × Glass (×2/scored) × Polychrome (×1.5/scored) × joker xmult
+   4. Red Seal: scoring card's total contribution ×2 (applied as bonus chips)
    (Joker shape is documented at the JOKERS pool in section 1.)
 */
-function computePlayScore(cards, jokers = [], discardsLeft = 0) {
+function computePlayScore(cards, jokers = [], discardsLeft = 0, hand = null) {
   const ev = evaluateHand(cards);
   const ctx = {
     cards,
@@ -364,19 +444,68 @@ function computePlayScore(cards, jokers = [], discardsLeft = 0) {
     cardCount: cards.length,
     discardsLeft,
   };
-  let chips = ev.base.chips + ev.scoring.reduce((sum, c) => sum + CHIP_VALUE[c.rank], 0);
-  let mult = ev.base.mult;
-  for (const kind of ['chips', 'mult', 'xmult']) {
-    for (const j of jokers) {
-      if (j.kind !== kind) continue;
-      if (j.cond && !j.cond(ctx)) continue;
-      const amt = typeof j.amount === 'function' ? j.amount(ctx) : j.value;
-      if (kind === 'chips') chips += amt;
-      else if (kind === 'mult') mult += amt;
-      else mult *= amt;
+
+  // --- Chips pass ---
+  let chips = ev.base.chips;
+  for (const c of ev.scoring) {
+    // Base chip value (Stone = 0, no rank)
+    if (c.rank !== null) chips += CHIP_VALUE[c.rank] || 0;
+    // Enhancement chips
+    if (c.enhancement === 'bonus') chips += 30;
+    if (c.enhancement === 'stone') chips += 50;
+    // Edition chips
+    if (c.edition === 'foil') chips += 50;
+    // Red Seal: double this card's contribution (chip value + enhancement + edition)
+    if (c.seal === 'red') {
+      let cardContrib = (c.rank !== null ? CHIP_VALUE[c.rank] || 0 : 0);
+      if (c.enhancement === 'bonus') cardContrib += 30;
+      if (c.enhancement === 'stone') cardContrib += 50;
+      if (c.edition === 'foil') cardContrib += 50;
+      chips += cardContrib; // add it again (retrigger)
     }
   }
-  return { chips, mult, total: chips * mult, eval: ev };
+  // Joker chips (Foil edition adds +50 before joker's own effect)
+  for (const j of jokers) {
+    if (j.kind !== 'chips') continue;
+    if (j.cond && !j.cond(ctx)) continue;
+    if (j.edition === 'foil') chips += 50;
+    chips += typeof j.amount === 'function' ? j.amount(ctx) : j.value;
+  }
+
+  // --- Mult pass ---
+  let mult = ev.base.mult;
+  for (const c of ev.scoring) {
+    if (c.enhancement === 'mult') mult += 4;
+    if (c.enhancement === 'lucky' && Math.random() < 0.2) mult += 20;
+    if (c.edition === 'holographic') mult += 10;
+  }
+  // Joker mult (Holo edition adds +10 before joker's own effect)
+  for (const j of jokers) {
+    if (j.kind !== 'mult') continue;
+    if (j.cond && !j.cond(ctx)) continue;
+    if (j.edition === 'holographic') mult += 10;
+    mult += typeof j.amount === 'function' ? j.amount(ctx) : j.value;
+  }
+
+  // --- xMult pass ---
+  const heldCards = hand || cards; // Steel applies to held (unplayed) cards
+  for (const c of heldCards) {
+    if (c.enhancement === 'steel') mult *= 1.5;
+  }
+  for (const c of ev.scoring) {
+    if (c.enhancement === 'glass') mult *= 2;
+    if (c.edition === 'polychrome') mult *= 1.5;
+  }
+  // Joker xmult (Poly edition multiplies ×1.5 after joker's own effect)
+  for (const j of jokers) {
+    if (j.kind !== 'xmult') continue;
+    if (j.cond && !j.cond(ctx)) continue;
+    mult *= typeof j.amount === 'function' ? j.amount(ctx) : j.value;
+    if (j.edition === 'polychrome') mult *= 1.5;
+  }
+
+  mult = Math.round(mult * 100) / 100; // avoid floating point drift
+  return { chips, mult, total: Math.round(chips * mult * 100) / 100, eval: ev };
 }
 
 /* ---------------- 6. ECONOMY ---------------- */
@@ -421,18 +550,29 @@ function rollOffers() {
   const pool = hasShowman
     ? JOKERS.slice()
     : JOKERS.filter(j => !ownedIds.has(j.id));
-  if (pool.length <= SHOP_OFFER_COUNT) return pool.slice();
+  if (pool.length <= SHOP_OFFER_COUNT) {
+    return pool.slice().map(j => attachJokerMods(j));
+  }
   // Pick SHOP_OFFER_COUNT unique jokers via weighted rarity
   const chosen = [];
   const chosenIds = new Set();
   const candidates = pool.slice();
   for (let i = 0; i < SHOP_OFFER_COUNT && candidates.length > 0; i++) {
     const picked = weightedPick(candidates, j => RARITY_WEIGHTS[j.rarity] || 1);
-    chosen.push(picked);
+    chosen.push(attachJokerMods(picked));
     chosenIds.add(picked.id);
     candidates.splice(candidates.indexOf(picked), 1);
   }
   return chosen;
+}
+
+// Create a copy of the joker with rolled modifiers attached
+function attachJokerMods(j) {
+  const mod = rollJokerModifiers();
+  const copy = { ...j };
+  if (mod.edition) copy.edition = mod.edition;
+  if (mod.sticker) copy.sticker = mod.sticker;
+  return copy;
 }
 
 function enterShop() {
@@ -526,7 +666,7 @@ function removeSelectedCards() {
 
 function onPlayClick() {
   if (state.selected.length === 0 || state.playsLeft <= 0) return;
-  const s = computePlayScore(selectedCards(), state.jokers, state.discardsLeft);
+  const s = computePlayScore(selectedCards(), state.jokers, state.discardsLeft, state.hand);
   state.playsLeft -= 1;
   removeSelectedCards();
   drawUp();
@@ -551,6 +691,9 @@ function blindResult(roundScore, playsLeft, target) {
 }
 
 function onBlindCleared() {
+  // Round-end hooks (card modifiers)
+  applyRoundEndHooks();
+
   const payout = applyBlindClearPayout(state.money, state.discardsLeft);
   state.money = payout.money;
   state.lastPayout = { ...payout, blind: blindName() };
@@ -562,6 +705,33 @@ function onBlindCleared() {
   state.ante = next.ante;
   state.blindIdx = next.blindIdx;
   enterShop();
+}
+
+// Round-end effects: Gold enhancement, Rental sticker, Glass destruction
+function applyRoundEndHooks() {
+  // Gold: +$3 per gold-enhanced card still in hand
+  for (const c of state.hand) {
+    if (c.enhancement === 'gold') state.money += 3;
+  }
+  // Rental: -$3 per rental-stickered joker
+  for (const j of state.jokers) {
+    if (j.sticker === 'rental') state.money -= 3;
+  }
+  state.money = Math.max(0, state.money);
+
+  // Glass: 1-in-4 chance to be destroyed after scoring (check hand + deck)
+  const allCards = [...state.hand, ...state.deck];
+  for (let i = allCards.length - 1; i >= 0; i--) {
+    if (allCards[i].enhancement === 'glass' && Math.random() < 0.25) {
+      // Remove from wherever it is
+      const handIdx = state.hand.indexOf(allCards[i]);
+      if (handIdx !== -1) state.hand.splice(handIdx, 1);
+      else {
+        const deckIdx = state.deck.indexOf(allCards[i]);
+        if (deckIdx !== -1) state.deck.splice(deckIdx, 1);
+      }
+    }
+  }
 }
 
 function onBlindLost() {
@@ -655,7 +825,7 @@ function renderHUD() {
   $('hud-money').textContent = `$${state.money}`;
   $('hud-plays').textContent = state.playsLeft;
   $('hud-discards').textContent = state.discardsLeft;
-  $('hud-ante').textContent = state.ante;
+  $('hud-ante').textContent = state.ante + '/' + MAX_ANTE;
 }
 
 function renderSplash() {
@@ -834,5 +1004,8 @@ if (typeof module !== 'undefined' && module.exports) {
     START_PLAYS, START_DISCARDS, START_MONEY,
     RARITY_WEIGHTS, RARITY_ORDER, weightedPick,
     JOKER_FRAME, JOKER_ICON, JOKER_ICONS,
+    ENHANCEMENTS, SEALS, EDITIONS, STICKERS,
+    CARD_MOD_RATES, JOKER_MOD_RATES,
+    rollCardModifiers, rollJokerModifiers, applyRoundEndHooks,
   };
 }

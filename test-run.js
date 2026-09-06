@@ -20,7 +20,7 @@ const S = () => G.getState();
 // Rig the hand to a royal flush (spades) + 3 filler cards, select the royal.
 // Deck is topped up so refills always reach 8 (tests flow, not deck depletion).
 function playRoyal() {
-  S().deck = G.buildDeck().slice();
+  S().deck = G.buildDeck(true).slice();
   S().hand = [
     { rank: '9', suit: 'spade' }, { rank: '10', suit: 'spade' },
     { rank: 'J', suit: 'spade' }, { rank: 'Q', suit: 'spade' }, { rank: 'K', suit: 'spade' },

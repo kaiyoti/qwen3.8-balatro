@@ -25,7 +25,7 @@ console.log('== Offers ==');
 {
   const offers = G.rollOffers();
   check('5 offers', offers.length === 5);
-  check('all from the pool', offers.every(j => G.JOKERS.includes(j)));
+  check('all from the pool', offers.every(j => G.JOKERS.some(p => p.id === j.id)));
   check('no dupes in one shop', new Set(offers.map(j => j.id)).size === 5);
   let allUnique = true;
   for (let i = 0; i < 20; i++) {

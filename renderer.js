@@ -420,12 +420,13 @@ class PlayScene extends Phaser.Scene {
     body.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
     body.setDepth(1);
 
-    const suitColor = SUIT_COLORS[card.suit];
+    const suitColor = SUIT_COLORS[card.suit] || 0x888888;
     const colorStr = '#' + suitColor.toString(16).padStart(6, '0');
-    const sym = SUIT_SYM[card.suit];
+    const sym = SUIT_SYM[card.suit] || '?';
+    const rankStr = card.rank || '?';
 
     // Corner index (top-left): rank + suit stacked
-    const cornerTL_rank = this.add.text(-CARD_W / 2 + 8, -CARD_H / 2 + 5, card.rank, {
+    const cornerTL_rank = this.add.text(-CARD_W / 2 + 8, -CARD_H / 2 + 5, rankStr, {
       fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(0, 0);
     const cornerTL_suit = this.add.text(-CARD_W / 2 + 9, -CARD_H / 2 + 35, sym, {
@@ -433,7 +434,7 @@ class PlayScene extends Phaser.Scene {
     }).setOrigin(0, 0);
 
     // Corner index (bottom-right): rank + suit stacked (flipped)
-    const cornerBR_rank = this.add.text(CARD_W / 2 - 8, CARD_H / 2 - 5, card.rank, {
+    const cornerBR_rank = this.add.text(CARD_W / 2 - 8, CARD_H / 2 - 5, rankStr, {
       fontFamily: 'monospace', fontSize: '30px', fontStyle: 'bold', color: colorStr, resolution: 2,
     }).setOrigin(1, 1);
     const cornerBR_suit = this.add.text(CARD_W / 2 - 9, CARD_H / 2 - 35, sym, {

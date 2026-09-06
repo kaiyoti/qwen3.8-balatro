@@ -40,7 +40,7 @@ for (const [k, [chips, mult]] of Object.entries(EXPECTED_BASE)) {
 
 console.log('\n== Deck ==');
 {
-  const d = buildDeck();
+  const d = buildDeck(true);
   check('deck has 52 cards', d.length === 52);
   check('all rank+suit combos unique', new Set(d.map(x => x.rank + x.suit)).size === 52);
 }
