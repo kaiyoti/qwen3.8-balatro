@@ -93,13 +93,62 @@ class PlayScene extends Phaser.Scene {
     // Load all joker SVG icons as textures (data-URI, no network requests)
     const icons = window.JOKER_ICONS;
     const colors = window.JOKER_ICON;
-    if (!icons || !colors) return;
-
-    const SIZE = 48; // render at 48x48 for crisp pixel-art look in 64px frame
-    for (const id of Object.keys(icons)) {
-      const uri = this.makeIconDataURI(icons[id], colors[id] || '#888888', SIZE);
-      this.load.image(`joker-${id}`, uri);
+    if (icons && colors) {
+      const SIZE = 48;
+      for (const id of Object.keys(icons)) {
+        const uri = this.makeIconDataURI(icons[id], colors[id] || '#888888', SIZE);
+        this.load.image(`joker-${id}`, uri);
+      }
     }
+
+    // Generate bitmap glyph textures (anti-aliased-free via alpha threshold)
+    const glyphDefs = [
+      ['A', 'glyph-A'], ['2', 'glyph-2'], ['3', 'glyph-3'], ['4', 'glyph-4'],
+      ['5', 'glyph-5'], ['6', 'glyph-6'], ['7', 'glyph-7'], ['8', 'glyph-8'],
+      ['9', 'glyph-9'], ['10', 'glyph-10'], ['J', 'glyph-J'], ['Q', 'glyph-Q'], ['K', 'glyph-K'],
+      ['\u2660', 'glyph-spade'], ['\u2665', 'glyph-heart'], ['\u2666', 'glyph-diamond'], ['\u2663', 'glyph-club'],
+    ];
+    const GLYPH_SIZE = 48;
+    glyphDefs.forEach(([ch, key]) => {
+      const uri = this.makeGlyphDataURI(ch, GLYPH_SIZE);
+      this.load.image(key, uri);
+    });
+  }
+
+  // Get texture key for a rank character or suit symbol
+  glyphKey(char) {
+    if (char === '\u2660') return 'glyph-spade';
+    if (char === '\u2665') return 'glyph-heart';
+    if (char === '\u2666') return 'glyph-diamond';
+    if (char === '\u2663') return 'glyph-club';
+    return `glyph-${char}`;
+  }
+
+  // Render a character to a canvas, apply alpha threshold (kills AA),
+  // return as a base64 PNG data-URI for Phaser texture loading.
+  makeGlyphDataURI(char, size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Render white text on transparent background
+    const fontSize = char === '10' ? size * 0.45 : size * 0.7;
+    ctx.font = `bold ${Math.round(fontSize)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(char, size / 2, size / 2 + 1);
+
+    // Alpha threshold: convert semi-transparent pixels to hard edges
+    const imageData = ctx.getImageData(0, 0, size, size);
+    const d = imageData.data;
+    for (let i = 3; i < d.length; i += 4) {
+      d[i] = d[i] > 128 ? 255 : 0;
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    return canvas.toDataURL('image/png');
   }
 
   create() {
@@ -217,8 +266,10 @@ class PlayScene extends Phaser.Scene {
       const y = this.jokerY + jh / 2;
 
       // Card body (white, like playing cards)
-      const body = this.add.rectangle(x, y, jw, jh, 0xf5f0e8)
-        .setStrokeStyle(3, 0x222222).setDepth(5);
+      const body = this.add.graphics().setDepth(5);
+      body.fillRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
+      body.lineStyle(3, 0x222222, 1);
+      body.strokeRoundedRect(x - jw / 2, y - jh / 2, jw, jh, 8);
 
       // Rarity strip (colored bar at top of card)
       const rarityColor = RARITY_COLORS[j.rarity] || 0x555555;
@@ -305,67 +356,63 @@ class PlayScene extends Phaser.Scene {
     const container = this.add.container(x, y);
     container.setRotation(angle);
 
-    // Card shadow (hard offset) - must stay the bottommost layer so the
-    // selection highlight (added next) renders on top of it, not the other
-    // way around. Previously the highlight was inserted first and the
-    // shadow was appended after, so the opaque shadow covered part of the
-    // highlight ring on its offset side, making the shadow look like it was
-    // cutting *into* the highlight instead of sitting outside/behind it.
-    const shadow = this.add.rectangle(4, 4, CARD_W, CARD_H, 0x0a0a15);
+    const R = 8; // corner radius
+
+    // Card shadow (hard offset)
+    const shadow = this.add.graphics();
+    shadow.fillRoundedRect(4 - CARD_W / 2, 4 - CARD_H / 2, CARD_W, CARD_H, R);
     shadow.setDepth(0);
 
     const highlightObjs = [];
     if (isSelected) {
-      const highlight = this.add.rectangle(0, 0, CARD_W + 6, CARD_H + 6, 0xffffff, 0.3);
-      highlight.setStrokeStyle(3, 0x4a90d9);
+      const highlight = this.add.graphics();
+      highlight.fillStyle(0xffffff, 0.3);
+      highlight.fillRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, R + 2);
+      highlight.lineStyle(3, 0x4a90d9, 1);
+      highlight.strokeRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, R + 2);
       highlightObjs.push(highlight);
     }
 
     // Card body
-    const body = this.add.rectangle(0, 0, CARD_W, CARD_H, 0xf5f0e8);
-    body.setStrokeStyle(3, 0x222222);
+    const body = this.add.graphics();
+    body.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
+    body.lineStyle(3, 0x222222, 1);
+    body.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, R);
     body.setDepth(1);
 
     const suitColor = SUIT_COLORS[card.suit];
-    const colorStr = '#' + suitColor.toString(16).padStart(6, '0');
     const sym = SUIT_SYM[card.suit];
+    const rankKey = this.glyphKey(card.rank);
+    const suitKey = this.glyphKey(sym);
 
     // Corner index (top-left): rank + suit stacked
-    const cornerTL_rank = this.add.text(-CARD_W / 2 + 5, -CARD_H / 2 + 3, card.rank, {
-      fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: colorStr, resolution: 2,
-    }).setOrigin(0, 0);
-    const cornerTL_suit = this.add.text(-CARD_W / 2 + 6, -CARD_H / 2 + 22, sym, {
-      fontFamily: 'monospace', fontSize: '14px', color: colorStr, resolution: 2,
-    }).setOrigin(0, 0);
+    const cornerTL_rank = this.add.image(-CARD_W / 2 + 10, -CARD_H / 2 + 10, rankKey)
+      .setDisplaySize(20, 20).setOrigin(0, 0).setTint(suitColor);
+    const cornerTL_suit = this.add.image(-CARD_W / 2 + 10, -CARD_H / 2 + 28, suitKey)
+      .setDisplaySize(16, 16).setOrigin(0, 0).setTint(suitColor);
 
     // Corner index (bottom-right): rank + suit stacked (flipped)
-    const cornerBR_rank = this.add.text(CARD_W / 2 - 5, CARD_H / 2 - 3, card.rank, {
-      fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold', color: colorStr, resolution: 2,
-    }).setOrigin(1, 1);
-    const cornerBR_suit = this.add.text(CARD_W / 2 - 6, CARD_H / 2 - 22, sym, {
-      fontFamily: 'monospace', fontSize: '14px', color: colorStr, resolution: 2,
-    }).setOrigin(1, 1);
+    const cornerBR_rank = this.add.image(CARD_W / 2 - 10, CARD_H / 2 - 10, rankKey)
+      .setDisplaySize(20, 20).setOrigin(1, 1).setTint(suitColor).setScale(1, -1);
+    const cornerBR_suit = this.add.image(CARD_W / 2 - 10, CARD_H / 2 - 28, suitKey)
+      .setDisplaySize(16, 16).setOrigin(1, 1).setTint(suitColor).setScale(1, -1);
 
     // Pips: number cards 2-10 use layout, Ace/J/Q/K use single center
     const pips = [];
     if (PIP_LAYOUTS[card.rank]) {
-      // Pip area bounds (inset from card center)
       const pipW = CARD_W * (1 - 2 * PIP_MARGIN_X);
       const pipH = CARD_H * (1 - 2 * PIP_MARGIN_Y);
       PIP_LAYOUTS[card.rank].forEach(p => {
         const px = Math.round(-pipW / 2 + p.x * pipW);
         const py = Math.round(-pipH / 2 + p.y * pipH);
-        const pip = this.add.text(px, py, sym, {
-          fontSize: '20px', color: colorStr, resolution: 2,
-        }).setOrigin(0.5);
-        if (p.flip) pip.setScale(1, -1);
+        const pip = this.add.image(px, py, suitKey)
+          .setDisplaySize(18, 18).setOrigin(0.5).setTint(suitColor);
+        if (p.flip) pip.setScale(pip.scaleX, -pip.scaleY);
         pips.push(pip);
       });
     } else {
-      // Single large center pip for A/J/Q/K
-      const centerPip = this.add.text(0, 0, sym, {
-        fontSize: '40px', color: colorStr, resolution: 2,
-      }).setOrigin(0.5);
+      const centerPip = this.add.image(0, 0, suitKey)
+        .setDisplaySize(40, 40).setOrigin(0.5).setTint(suitColor);
       pips.push(centerPip);
     }
 

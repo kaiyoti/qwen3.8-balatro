@@ -201,3 +201,57 @@
 192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /game.js HTTP/1.1" 304 -
 192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /renderer.js HTTP/1.1" 304 -
 192.168.10.47 - - [06/Sep/2026 05:02:34] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:03:15] "GET / HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:03:15] "GET /style.css HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:04:59] "GET / HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:13] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:13] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:14] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:15] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:15] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:16] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:16] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:17] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:18] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:19] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:19] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET / HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /style.css HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /lib/phaser.min.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /game.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /fonts/PressStart2P-Regular.woff2 HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:05:21] code 404, message File not found
+192.168.10.47 - - [06/Sep/2026 05:05:21] "GET /favicon.ico HTTP/1.1" 404 -
+192.168.10.47 - - [06/Sep/2026 05:05:37] "GET /renderer.js HTTP/1.1" 304 -
+192.168.10.47 - - [06/Sep/2026 05:07:16] "GET /renderer.js HTTP/1.1" 200 -
+192.168.10.47 - - [06/Sep/2026 05:07:17] "GET /renderer.js HTTP/1.1" 304 -
