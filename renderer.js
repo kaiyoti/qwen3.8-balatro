@@ -488,16 +488,20 @@ class PlayScene extends Phaser.Scene {
     const scoringCards = result.eval.scoring;
     const chipValues = G.CHIP_VALUE;
 
+    // Splash display: start at base, increment as cards resolve.
+    // Guard: setSplashDisplay may not exist if game.js is a stale cached version.
+    const splash = (c, m) => { if (typeof G.setSplashDisplay === 'function') G.setSplashDisplay(c, m); };
+
     // Splash display: start at base, increment as cards resolve
     const baseChips = result.eval.base.chips;
     const baseMult = result.eval.base.mult;
     let dispChips = baseChips;
     let dispMult = baseMult;
-    G.setSplashDisplay(dispChips, dispMult);
+    splash(dispChips, dispMult);
 
     if (scoringCards.length === 0) {
       // No scoring cards — jump to final immediately, then slide out
-      G.setSplashDisplay(result.chips, result.mult);
+      splash(result.chips, result.mult);
       setTimeout(() => this.slidePlayedCardsOut(landedTargets, () => {
         G.onPlayClick();
         this.lastStateHash = '';
@@ -518,7 +522,7 @@ class PlayScene extends Phaser.Scene {
       if (idx >= scoringCards.length) {
         // All cards scored — show final total (includes joker effects),
         // brief pause, then slide out and commit
-        G.setSplashDisplay(result.chips, result.mult);
+        splash(result.chips, result.mult);
         setTimeout(() => this.slidePlayedCardsOut(landedTargets, () => {
           G.onPlayClick();
           this.lastStateHash = '';
@@ -533,7 +537,7 @@ class PlayScene extends Phaser.Scene {
 
       // Increment splash chips as this card resolves
       dispChips += chips;
-      G.setSplashDisplay(dispChips, dispMult);
+      splash(dispChips, dispMult);
 
       if (sprite) {
         // Pop up
