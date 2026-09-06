@@ -314,7 +314,6 @@ class PlayScene extends Phaser.Scene {
 
       if (isSelected) {
         if (isNewlySelected) {
-          // Animate slide-out for the newly selected card
           this.tweens.add({
             targets: sprite,
             y: slideY,
@@ -322,9 +321,17 @@ class PlayScene extends Phaser.Scene {
             ease: 'Quad.easeOut',
           });
         } else {
-          // Already selected — snap to final position without animation
           sprite.setY(slideY);
         }
+      } else if (prevSelected.includes(i)) {
+        // Was selected, now deselected — animate back down (faster)
+        sprite.setY(y - 40);
+        this.tweens.add({
+          targets: sprite,
+          y: y,
+          duration: dur(90),
+          ease: 'Quad.easeIn',
+        });
       }
     });
   }
